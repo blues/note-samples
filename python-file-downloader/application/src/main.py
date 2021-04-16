@@ -2,13 +2,15 @@
 import json
 import os
 import sys
-from periphery import I2C
-import notecard
 import time
 import math
+from periphery import I2C
+import notecard
 import bme680
 import base64
 from gpiozero import InputDevice
+import zlib
+
 import version
 
 bme_sensor = bme680.BME680(bme680.I2C_ADDR_PRIMARY)
@@ -29,7 +31,7 @@ print(f"Notecard File Downloader Sample version {version.get_version()}")
 print("*************")
 print("Connecting to Notecard...")
 port = I2C("/dev/i2c-1")
-card = notecard.OpenI2C(port, 0, 0, debug=True)
+card = notecard.OpenI2C(port, 0, 0, debug=False)
 
 
 def main():
@@ -112,7 +114,18 @@ def web_get_chunk(file_to_update, chunk=1):
 
   try:
     rsp = card.Transaction(req)
-    return rsp
+
+    if "err" in rsp["body"]:
+      return None
+
+    # Perform a crc32 on the chunk to make sure it matches what we should get.
+    # If not, request again.
+    body = rsp["body"]
+    if zlib.crc32(body["payload"].encode('utf-8')) == body["crc32"]:
+      return rsp
+    else:
+      print("Communication error downloading chunk. Retrying...")
+      return web_get_chunk(file_to_update)
   except:
     # Using Serverless functions sometimes comes with a "warm-up" cost
     # that may cause the Notecard to timeout. Typically repeating the
@@ -121,16 +134,15 @@ def web_get_chunk(file_to_update, chunk=1):
 
 
 def get_file_from_remote(file_to_update):
+  print('Requesting first chunk...')
   file_chunk = web_get_chunk(file_to_update)
-
-  print(file_chunk)
 
   if "err" in file_chunk["body"]:
     return None
   else:
     body = file_chunk["body"]
     chunk_num = body["chunk_num"]
-    total_chunks = body["total_chunks"]
+    total_chunks = int(body["total_chunks"])
 
     if total_chunks == 1:
       return body["payload"]
@@ -138,11 +150,9 @@ def get_file_from_remote(file_to_update):
       print('File requires multiple requests...')
       file_string = body["payload"]
 
-      for i in range(chunk_num+1, int(total_chunks)):
+      for i in range(chunk_num+1, total_chunks):
         print(f"Requesting chunk {i} of {total_chunks}")
         file_chunk = web_get_chunk(file_to_update, i)
-
-        print(file_chunk)
 
         if "err" in file_chunk["body"]:
           return None
@@ -186,6 +196,7 @@ while True:
     while "{sync-end}" not in status and "{modem-off}" not in status:
       print("Waiting for sync to complete before continuing...")
       time.sleep(5)
+      status = get_sync_status()
 
     file_contents = get_file_from_remote(file_to_update)
 

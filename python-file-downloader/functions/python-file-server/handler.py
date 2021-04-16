@@ -3,6 +3,7 @@ import json
 import os
 import base64
 import math
+import zlib
 
 print('Loading function')
 
@@ -33,7 +34,7 @@ def lambda_handler(event, context):
 
     bucket = "file-updater-bucket"
     operation = event['httpMethod']
-    chunk_size = 100
+    chunk_size = 250
 
     if operation == "GET":
         if 'queryStringParameters' in event:
@@ -60,9 +61,10 @@ def lambda_handler(event, context):
                         print('Sending Single Chunk...')
 
                         # Base64 Encode the file and return
-                        fileString = base64.b64encode(response['Body'].read()).decode("UTF-8")
+                        fileString = base64.b64encode(response['Body'].read())
 
-                        respBody["payload"] = fileString
+                        respBody["payload"] = fileString.decode("UTF-8")
+                        respBody["crc32"] = zlib.crc32(fileString)
                         respBody["chunk_num"] = chunk_num
                         respBody["total_chunks"] = 1
 
@@ -86,8 +88,9 @@ def lambda_handler(event, context):
                         fileString = response['Body'].read()
                         chunkString = fileString[chunk_offset * chunk_size:chunk_size - 1 + (chunk_size * chunk_offset)]
 
-                        rspString = base64.b64encode(chunkString).decode("UTF-8")
-                        respBody["payload"] = rspString
+                        rspString = base64.b64encode(chunkString)
+                        respBody["payload"] = rspString.decode("UTF-8")
+                        respBody["crc32"] = zlib.crc32(rspString)
                         respBody["chunk_num"] = chunk_num
                         respBody["total_chunks"] = total_chunks
 
