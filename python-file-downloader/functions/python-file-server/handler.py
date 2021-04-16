@@ -2,6 +2,7 @@ import boto3
 import json
 import os
 import base64
+import math
 
 print('Loading function')
 
@@ -10,19 +11,29 @@ s3 = boto3.client('s3')
 def respond(err, res=None):
     return {
         'statusCode': '400' if err else '200',
-        'body': err if err else json.dumps(res),
+        'body': { 'message': err } if err else json.dumps(res),
         'headers': {
             'Content-Type': 'application/json',
         },
     }
 
 
+def delete_file(bucket, key):
+    print("DELETING...")
+    delResponse = s3.delete_object(Bucket=bucket, Key=key)
+
+    if (delResponse['ResponseMetadata']['HTTPStatusCode'] == 204):
+        print("Deleted")
+    else:
+        print("File not deleted. Please perform manual delete.")
+
+
 def lambda_handler(event, context):
-    print("Received event: " + json.dumps(event, indent=2))
+    # print("Received event: " + json.dumps(event, indent=2))
 
     bucket = "file-updater-bucket"
     operation = event['httpMethod']
-    chunk_size = 4000
+    chunk_size = 100
 
     if operation == "GET":
         if 'queryStringParameters' in event:
@@ -30,7 +41,7 @@ def lambda_handler(event, context):
 
             if payload:
                 file = payload['file']
-                chunk_num = payload.get("chunk", 0)
+                chunk_num = int(payload.get("chunk", 1))
 
                 print(f"Fetching File '{file}'...")
 
@@ -52,10 +63,37 @@ def lambda_handler(event, context):
                         fileString = base64.b64encode(response['Body'].read()).decode("UTF-8")
 
                         respBody["payload"] = fileString
+                        respBody["chunk_num"] = chunk_num
+                        respBody["total_chunks"] = 1
+
+                        # Uncomment to delete the file after transfer
+                        # delete_file(bucket, file)
                     else:
-                        # calculate number of chunks and return
-                        total_chunks = 0
+                        # calculate number of chunks and return a substring of
+                        # the requested chunk
+                        chunk_offset = chunk_num - 1
+                        leftover, total_chunks = math.modf(file_size/chunk_size)
+                        if leftover > 0:
+                            total_chunks = total_chunks+1
+
+                        if (chunk_num > total_chunks):
+                            print("Invalid chunk number..")
+
+                            return respond('Invalid Chunk Number Requested')
+
                         print(f"Sending chunk {chunk_num} of {total_chunks}...")
+
+                        fileString = response['Body'].read()
+                        chunkString = fileString[chunk_offset * chunk_size:chunk_size - 1 + (chunk_size * chunk_offset)]
+
+                        rspString = base64.b64encode(chunkString).decode("UTF-8")
+                        respBody["payload"] = rspString
+                        respBody["chunk_num"] = chunk_num
+                        respBody["total_chunks"] = total_chunks
+
+                        # Uncomment to delete the file after transfer
+                        # if chunk_num == total_chunks:
+                            # delete_file(bucket, file)
 
                     return respond(None, respBody)
 
