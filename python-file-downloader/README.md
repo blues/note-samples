@@ -19,7 +19,7 @@ Once all of the above a configured, you can run the sample.
 4. Run `python3 src/main.py`
 5. Upload a modified version of `version.py` or `main.py` and watch the console. You'll see something like the following.
 
-![File Downloader Example](/assets/downloader-example.png)
+![File Downloader Example](assets/downloader-example.png)
 
 ## Sample Application Flow
 
