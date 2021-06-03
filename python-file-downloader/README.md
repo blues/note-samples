@@ -5,7 +5,7 @@ This sample shows how to use the Notecard to update a host single-board computer
 is required to run this sample:
 
 - An Amazon S3 Bucket for source files, [configured to trigger a Lambda function](https://docs.aws.amazon.com/lambda/latest/dg/with-s3-example.html) when files are uploaded. The source for this function is in the [functions/python-file-notifier](functions/python-file-notifier/handler.py) folder.
-- A Lambda function, triggered by S3 to notify the Notecard of a new source file. The source for this function is in the [functions/python-file-server](functions/python-file-server/handler.py) folder.
+- A Lambda function, triggered by S3 to notify the Notecard of a new source file. The source for this function is in the [functions/python-file-server](functions/python-file-server/handler.py) folder. The Lambda functions use environment variables (`os.environ`) for the DeviceUID, ProductUID and Notehub API Session Token. See [this doc](https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html) for details on using environment variables in Lambda. 
 - A Lambda function, called by the Notecard, that serves base64-encoded file chunks from the source file.
 - A Notehub.io [Web Request Route](https://dev.blues.io/reference/notecard-walkthrough/web-transactions/#web-transactions) that points to the `python-file-server` Lambda function.
 
