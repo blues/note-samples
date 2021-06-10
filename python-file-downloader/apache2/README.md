@@ -50,3 +50,34 @@ $ sudo service apache2 restart
 # WSGI-Script already exists.
 You shouldn't have to do the tutorial section titled
 "Your Own moi.wsgi Script" as that is already written in the "apache2" folder
+
+# Assets Folder
+The `assets` folder is where file server looks for files to serve.
+
+In `fileServerApp.py` there is a line that currently defines this folder relative to the folder containing `fileServerApp.py`  which looks like this:
+```python
+assetPath = os.path.join(rootPath, '../assets')
+```
+That is
+
+```
+  some_root_dir
+   |
+   |
+   -apache2
+   |   |
+   |   -fileServerApp.py
+   |   - ...
+   |
+   -assets
+       |
+       - firmware_image_1.bin
+       - firmware_image_2.bin
+       _...
+```
+
+You can change the location of this assets folder by changing the value of `assetPath` in `fileServerApp.py`
+
+
+
+
