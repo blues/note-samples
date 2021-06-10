@@ -2,9 +2,9 @@ from flask_restful import Resource
 from webargs import fields, validate
 from webargs.flaskparser import use_kwargs, parser, abort
 
-from reader import FileReader
+from server.reader import FileReader
 
-from encode import chunkAsBase64
+from server.encode import chunkAsBase64
 
 
 class DownloadHandler(Resource):

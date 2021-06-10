@@ -2,8 +2,8 @@
 
 from flask import Flask
 from flask_restful import Api
-from handler import DownloadHandler
-from reader import FileReader
+from server.handler import DownloadHandler
+from server.reader import FileReader
 import os
 
 app = Flask(__name__)

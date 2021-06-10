@@ -2,7 +2,8 @@ import unittest
 from unittest.mock import Mock
 
 
-from server import handler
+#from server import handler
+import handler
 from server.reader import FileReader
 from flask import Flask
 import base64
