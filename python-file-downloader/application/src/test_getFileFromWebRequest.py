@@ -8,10 +8,12 @@ import serial
 import notecard
 import base64
 import zlib
+import math
 
 
-#productUID = 'gwolff.firmware.update'
-productUID = 'com.vsthose.admin:vstcp2'
+
+defaultProductUID = 'com.vsthose.admin:vstcp2'
+defaultHost = "a.notefile.net"
 print("Connecting to Notecard...")
 # port = I2C("/dev/i2c-1")
 # card = notecard.OpenI2C(port, 0, 0, debug=False)
@@ -23,13 +25,20 @@ port = serial.Serial(port="COM4",
 nc = notecard.OpenSerial(port)
 
 
-def configureNotecard(card = nc):
+
+def current_milli_time():
+  return math.floor(time.time() * 1000)
+
+def configureNotecardForTestServer(card=nc):
+  configureNotecard(card,productUID='gwolff.firmware.update',host="i.staging.blues.tools")
+
+def configureNotecard(card = nc, productUID=defaultProductUID,host=defaultHost):
   print(f'Configuring Product: {productUID}...')
 
   req = {"req": "hub.set"}
   req["product"] = productUID
   #req["host"] = "i.staging.blues.tools"
-  req["host"] = "a.notefile.net"
+  req["host"] = host
   req["mode"] = "continuous"
   req["outbound"] = 60
   req["inbound"] = 120
@@ -43,109 +52,155 @@ def configureNotecard(card = nc):
 def get_sync_status(card = nc):
   req = {"req": "hub.sync.status"}
   rsp = card.Transaction(req)
-
+  
   if "err" in rsp:
-    return "No status available"
-  else:
+    return None
+
+  if "status" in rsp:
     return rsp["status"]
 
+  return "ready"
+
+def get_connection_status(card=nc):
+  req = {"req":"hub.status"}
+  rsp = card.Transaction(req)
+  
+  if "connected" in rsp:
+    return rsp["connected"]
+  
+  return False
+
+def notecard_is_ready_for_file_download():
+
+  isConnected = get_connection_status()
+  if not isConnected:
+    return False
+  
+  syncStatus = get_sync_status()
+
+  syncInProgress =  syncStatus is not None and "{sync-end}" not in syncStatus and "ready" not in syncStatus and "web request" not in syncStatus
+  if syncInProgress:
+    return False
+    
+
+  return True
 
 
-def web_get_chunk(card = nc, file_to_update="", chunk=1):
+
+
+def web_get_chunk(file_to_update, chunk=1, card=nc):
   req = {"req": "web.get"}
   req["route"] = "remoteFileDownloader"
   req["name"] = f"?file={file_to_update}&chunk={chunk}"
 
   try:
     rsp = card.Transaction(req)
-
-    if "err" in rsp["body"]:
+    print(rsp)
+    if rsp["result"] != 200:
       return None
 
-    # Perform a crc32 on the chunk to make sure it matches what we should get.
-    # If not, request again.
-    body = rsp["body"]
-    if zlib.crc32(body["payload"].encode('utf-8')) == body["crc32"]:
-      return rsp
-    else:
-      print("Communication error downloading chunk. Retrying...")
-      return web_get_chunk(card, file_to_update)
+
+    return rsp
+    
   except:
-    # Using Sert.verless functions sometimes comes with a "warm-up" cost
+    # Using Serverless functions sometimes comes with a "warm-up" cost
     # that may cause the Notecard to timeout. Typically repeating the
     # request will solve this.
-    return web_get_chunk(card, file_to_update)
-
-
-def get_file_from_remote(card=nc,file_to_update=""):
-  print('Requesting first chunk...')
-  file_chunk = web_get_chunk(file_to_update)
-
-  if "err" in file_chunk["body"]:
     return None
-  else:
+
+def chunk_is_valid(body):
+  return zlib.crc32(body["payload"].encode('utf-8')) == body["crc32"]
+
+get_file_from_remote_progress_timeout_ms = 30000
+def get_file_from_remote(file_to_update):
+  start_time = current_milli_time()
+  expiration_time = start_time + get_file_from_remote_progress_timeout_ms
+
+  next_chunk = 1
+  last_chunk = 1
+  file_string = ""
+  print('Starting download...')
+  while (next_chunk <= last_chunk):
+    print("Downloading chunk: ", next_chunk)
+    if (current_milli_time() > expiration_time):
+      print("File download timeout")
+      return None
+
+    file_chunk = web_get_chunk(file_to_update, next_chunk)
+
+    if file_chunk is None or "err" in file_chunk["body"]:
+      continue
+  
     body = file_chunk["body"]
-    chunk_num = body["chunk_num"]
-    total_chunks = int(body["total_chunks"])
+    if not chunk_is_valid(body):
+      continue
 
-    if total_chunks == 1:
-      return body["payload"]
-    else:
-      print('File requires multiple requests...')
-      file_string = body["payload"]
+    last_chunk = int(body["total_chunks"])
+    file_string += decode_content(body["payload"])
 
-      for i in range(chunk_num+1, total_chunks):
-        print(f"Requesting chunk {i} of {total_chunks}")
-        file_chunk = web_get_chunk(file_to_update, i)
+    next_chunk += 1
+    expiration_time = current_milli_time() + get_file_from_remote_progress_timeout_ms
 
-        if "err" in file_chunk["body"]:
-          return None
-        else:
-          file_string += file_chunk["body"]["payload"]
-
-      return file_string
+  return file_string
 
 
-def decode_file_contents(file_contents):
+def decode_content(file_contents, asString=True):
   file_bytes = file_contents.encode('utf-8')
   contents_bytes = base64.b64decode(file_bytes)
-  decoded_file_contents = contents_bytes.decode('utf-8')
+  if asString:
+    return contents_bytes.decode('utf-8')
+  
+  return contents_bytes
 
-  return decoded_file_contents
+def save_file(file_contents, file_name):
+  with open(f"./src/{file_name}", "w") as text_file:
+    print(file_contents, file=text_file)
+
+  print("File updated. Saved")
+#  os.execv(sys.executable, ['python'] + sys.argv)
 
 
+def attempt_file_download(file_to_update):
+  if not notecard_is_ready_for_file_download():
+    return False
+  
+  file_contents = None
+  
+  print(f"Source file '{file_to_update}' has been updated remotely. Downloading...")
+  file_contents = get_file_from_remote(file_to_update)
+
+  if file_contents:
+    save_file(file_contents, file_to_update)
+    return True
+  
+  print('Unable to update file...')
+  return False
 
 
-def doFileUpdate(file_to_update):
+def main_loop():
 
-
-    # Make sure we aren't in the middle of a sync
-    status = get_sync_status()
-    while "{sync-end}" not in status and "{modem-off}" not in status:
-      print("Waiting for sync to complete before continuing...")
-      time.sleep(5)
-      status = get_sync_status()
-
-    file_contents = get_file_from_remote(file_to_update)
-
-    if not file_contents:
-        print('Unable to update file...')
-      
-        pass
+  file_to_update = "downloader-example.png"
+  
+  file_update_attempt_expiration_ms = 0
+  file_update_attempt_interval_ms = 5000
+  while True:
+    curr_time = current_milli_time()
     
-    content = decode_file_contents(file_contents)
-
-    print(content)
+    if (file_to_update is not None) & (curr_time > file_update_attempt_expiration_ms):
+      success = attempt_file_download(file_to_update)
+      if success:
+        print("success!")
+        file_to_update = None
+        file_update_attempt_expiration_ms = 0
+        #return  #<--- would not have this in main execution loop.  
+      else:
+        # update expiration for next file download attempt
+        print("failed!")
+        file_update_attempt_expiration_ms = curr_time + file_update_attempt_interval_ms
      
 
 if __name__ == '__main__':
-    rsp = web_get_chunk(nc, "test.py", 1)
-    numChunks = rsp["body"]["total_chunks"]
-    chunk = 2
-    while "err" not in rsp["body"]:
-        rsp = web_get_chunk(nc, "test.py", chunk)
-        print(rsp)
-        chunk = chunk + 1
-        if chunk > numChunks:
-            chunk = 1
+    fc = main_loop()
+    #fc = get_file_from_remote("random-file.py")
+    print(fc)
 
