@@ -18,4 +18,4 @@ print(f.asset_path)
 
 if __name__ == '__main__':
     #api.add_resource(HelloWorld,'/blah', endpoint='blah')
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=8443)
