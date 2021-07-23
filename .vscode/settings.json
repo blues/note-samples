@@ -4,5 +4,19 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.nosetestsEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "cSpell.words": [
+        "MCUs",
+        "Notecarrier",
+        "SBCs",
+        "chmod",
+        "execv",
+        "noqa",
+        "pytest",
+        "uart"
+    ],
+    "cSpell.ignoreWords": [
+        "getenv",
+        "timeit"
+    ]
 }
