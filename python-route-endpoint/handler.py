@@ -1,3 +1,4 @@
+from datetime import time
 from flask_restful import Resource
 import flask
 
@@ -22,3 +23,24 @@ class UploadMeasurementHandler(Resource):
         self._addMeasurement(deviceId, timestamp, measurementType, value, units)
         
         return {"message": "uploaded sensor data"}, 200
+
+def _defaultAddAlertFunc(device, timestamp, type, message):
+    pass
+
+class UploadAlertHandler(Resource):
+    def __init__(self, addAlertFunc = _defaultAddAlertFunc) -> None:
+        super().__init__()
+        self._addAlert = addAlertFunc
+
+
+    def post(self):
+        json_input = flask.request.get_json()
+        
+        deviceId = json_input["device"]
+        timestamp = json_input["when"]
+        alertType = json_input["body"]["type"]
+        message = json_input["body"]["message"]
+
+        self._addAlert(deviceId, timestamp, alertType, message)
+
+        return {"message": "uploaded alert"}, 200

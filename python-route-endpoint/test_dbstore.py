@@ -12,10 +12,59 @@ def test_db_store_constructor():
     assert(s != None)
 
 
+def test_dbStore_connect():
+    s = dbstore.dbstore(file=inMemFile)
+    s.connect()
+
+    assert s._connection is not None
+
+def test_dbStore_connect_whenConnectionIsOpen():
+    s = dbstore.dbstore(file=inMemFile)
+    s.connect()
+    c = s._connection
+    s.connect()
+    assert s._connection == c
+
+
+
+def test_dbStore_close_whenConnectionIsOpen():
+    s = dbstore.dbstore(file=inMemFile)
+    s.connect()
+    assert s._connection is not None
+
+    s.close()
+    assert s._connection is None
+
+def test_dbStore_close_whenConnectionIsClosed():
+    s = dbstore.dbstore(file=inMemFile)
+    assert s._connection is None
+    s.close()
+    assert s._connection is None
+
+
+def test_dbStore_createTables():
+    s = dbstore.dbstore(file="inMemFile")
+    s.connect()
+    s.createTables()
+    for n in [measurementTable, alertTable]:
+        s._cursor.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{n}';")
+        isTable = s._cursor.fetchone()[0]==1
+        assert isTable
+        
+
+
+
+
 timestampTestData = "2021-04-29T23:25:44Z"
 
-def test_addMeasurement():
+def generateConnectedInMemDb() -> dbstore.dbstore:
     s = dbstore.dbstore(file=inMemFile)
+    s.connect()
+    s.createTables()
+    return s
+
+def test_addMeasurement():
+    s = generateConnectedInMemDb()
 
     deviceId = "dev:xxxxxxxxxxxx"
     measurementType = "sensor1"
@@ -37,7 +86,7 @@ def test_addMeasurement():
 
 
 def test_addAlert():
-    s = dbstore.dbstore(file=inMemFile)
+    s = s = generateConnectedInMemDb()
 
     deviceId = "dev:xxxxxxxxxxxx"
     alertType = "overfill"

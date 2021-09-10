@@ -1,9 +1,11 @@
-#@url = http://localhost
-@url = http://localhost:8443
+#@port = 8443
+@port = 5000
+
+
+@url = http://localhost:{{port}}
 #@url = http://167.172.15.241:5000
 
-### GET first chunk
-#GET {{url}}/download?file=downloader-example.png&chunk=1
+### POST measurement
 POST {{url}}/measurements
 Content-Type: application/json
 
@@ -17,15 +19,16 @@ Content-Type: application/json
     }
 }
 
-### Get second chunk
-GET {{url}}/download?file=downloader-example.png&chunk=2
+### POST alert
+POST {{url}}/alerts
+Content-Type: application/json
 
+{
+    "device": "dev:xxxxxxxxxxxxxxx",
+    "when": 1627495494,
+    "body": {
+        "type": "type1",
+        "message":"this is an alert"
+    }
+}
 
-### Get second to last chunk
-GET {{url}}/download?file=downloader-example.png&chunk=575
-
-### Get last chunk
-GET {{url}}/download?file=downloader-example.png&chunk=576
-
-### Attempt to get chunk beyond last chunk
-GET {{url}}/download?file=downloader-example.png&chunk=577

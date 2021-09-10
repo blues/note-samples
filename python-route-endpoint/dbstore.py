@@ -3,10 +3,10 @@ import sqlite3
 measurementTableName = "measurements"
 alertTableName = "alerts"
 class dbstore():
+    _connection = None
+    _cursor = None
     def __init__(self,file="") -> None:
-        self._connectToDb(file)
-        self._createMeasurementDataTableIfNotExist()
-        self._createAlertTableIfNotExist()
+        self._file = file
 
 
     def addMeasurement(self, deviceId, timestamp, type, value, units):
@@ -24,10 +24,24 @@ class dbstore():
         self._connection.commit()
 
 
-    def _connectToDb(self,file) -> None:
-        self._connection = sqlite3.connect(file)
+    def connect(self) -> None:
+        if self._connection is not None:
+            return
+
+        self._connection = sqlite3.connect(self._file)
         self._cursor = self._connection.cursor()
 
+    def close(self) -> None:
+        if not self._connection:
+            return
+
+        self._connection.close()
+        self._connection = None
+
+    def createTables(self):
+        self._createMeasurementDataTableIfNotExist()
+        self._createAlertTableIfNotExist()
+        
 
     def _createMeasurementDataTableIfNotExist(self):
         self._cursor.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{measurementTableName}';")
@@ -44,6 +58,8 @@ class dbstore():
               value FLOAT,
               units STRING
            );""")
+
+        self._connection.commit()
 
     def _createAlertTableIfNotExist(self):
         self._cursor.execute(f"SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{alertTableName}';")
