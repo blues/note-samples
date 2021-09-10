@@ -27,10 +27,16 @@ class UploadMeasurementHandler(Resource):
 def _defaultAddAlertFunc(device, timestamp, type, message):
     pass
 
+def _defaultGetAlertFunc(limit=None):
+    pass
+
 class UploadAlertHandler(Resource):
-    def __init__(self, addAlertFunc = _defaultAddAlertFunc) -> None:
+    def __init__(self, 
+                 addAlertFunc = _defaultAddAlertFunc, 
+                 getAlertFunc=_defaultGetAlertFunc) -> None:
         super().__init__()
         self._addAlert = addAlertFunc
+        self._getAlert = getAlertFunc
 
 
     def post(self):
@@ -44,3 +50,8 @@ class UploadAlertHandler(Resource):
         self._addAlert(deviceId, timestamp, alertType, message)
 
         return {"message": "uploaded alert"}, 200
+
+    def get(self):
+        val = self._getAlert(limit=50)
+
+        return (val, 200,)

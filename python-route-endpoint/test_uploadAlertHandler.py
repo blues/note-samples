@@ -5,10 +5,12 @@ from flask import Flask
 
 
 def test_uploadAlertHandler_constructor():
-    m = Mock()
-    h = handler.UploadAlertHandler(addAlertFunc=m)
+    m1 = Mock()
+    m2 = Mock()
+    h = handler.UploadAlertHandler(addAlertFunc=m1, getAlertFunc=m2)
 
-    assert h._addAlert == m
+    assert h._addAlert == m1
+    assert h._getAlert == m2
 
 
 def test_post_standard_notecard_event():
@@ -31,6 +33,21 @@ def test_post_response():
     with app.test_request_context('/',method='POST',json=d):
         r = h.dispatch_request()
         assert r[1] == 200
+
+
+def test_get_response():
+    app = Flask(__name__)
+    m = Mock()
+    e = [{"deviceId":"abc","timestamp":"1234","type":"somealert","message":"a message"}]
+    m.return_value = e
+
+    h = handler.UploadAlertHandler(getAlertFunc = m)
+
+    with app.test_request_context('/',method='GET'):
+        r = h.dispatch_request()
+        assert r[0] == e
+        assert r[1] == 200
+
 
 
 

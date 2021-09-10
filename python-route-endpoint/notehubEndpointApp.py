@@ -11,9 +11,12 @@ api = Api(app)
 
 
 store = dbstore(file="data.db")
+store.connect()
+store.createTables()
+store.close()
 
 api.add_resource(UploadMeasurementHandler, '/measurements',endpoint='measurements',resource_class_args=(store.addMeasurement,) )
-api.add_resource(UploadAlertHandler, '/alerts',endpoint='alerts',resource_class_args=(store.addAlert,) )
+api.add_resource(UploadAlertHandler, '/alerts',endpoint='alerts',resource_class_args=(store.addAlert,store.getAlerts) )
 
 @app.before_request
 def before_request():

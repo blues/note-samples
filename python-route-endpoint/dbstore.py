@@ -41,6 +41,28 @@ class dbstore():
     def createTables(self):
         self._createMeasurementDataTableIfNotExist()
         self._createAlertTableIfNotExist()
+
+    def getAlerts(self, limit=None):
+        query = f""" SELECT * FROM {alertTableName}
+                     ORDER BY ROWID DESC """
+
+        if limit and limit > 0:
+            query = f"""{query}
+                      LIMIT {limit}
+                     """
+        c = self._cursor.execute(query)
+
+        rows = c.fetchall()
+        val = []
+        for r in rows:
+            val.append({
+                "deviceId": r[0],
+                "timestamp": r[1],
+                "type": r[2],
+                "message": r[3]
+            })
+
+        return val
         
 
     def _createMeasurementDataTableIfNotExist(self):

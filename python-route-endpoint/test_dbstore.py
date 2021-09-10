@@ -86,7 +86,7 @@ def test_addMeasurement():
 
 
 def test_addAlert():
-    s = s = generateConnectedInMemDb()
+    s = generateConnectedInMemDb()
 
     deviceId = "dev:xxxxxxxxxxxx"
     alertType = "overfill"
@@ -105,3 +105,42 @@ def test_addAlert():
     assert row[3]  == message
 
     
+def test_getAlerts():
+    s = generateConnectedInMemDb()
+
+    deviceId = "dev:xxxxxxxxxxxx"
+    alertType = "overfill"
+    timestamp = timestampTestData
+    message = "message 1"
+
+    s.addAlert(deviceId, timestamp, alertType, message)
+    s.addAlert(deviceId, timestamp, alertType, message)
+
+    a = s.getAlerts()
+    
+    e = [{"deviceId":deviceId,"timestamp":timestamp,"type":alertType,"message":message},
+         {"deviceId":deviceId,"timestamp":timestamp,"type":alertType,"message":message},]
+    
+    assert a == e
+
+def test_getAlerts_noAlertsStored():
+    s = generateConnectedInMemDb()
+    a = s.getAlerts()
+    assert a == []
+
+def test_getAlerts_withLimit():
+    s = generateConnectedInMemDb()
+
+    deviceId = "dev:xxxxxxxxxxxx"
+    alertType = "overfill"
+    timestamp = timestampTestData
+    message = "message 1"
+
+    s.addAlert(deviceId, timestamp, alertType, message)
+    s.addAlert(deviceId, timestamp, alertType, message)
+
+    a = s.getAlerts(limit=1)
+    
+    e = [{"deviceId":deviceId,"timestamp":timestamp,"type":alertType,"message":message}]
+    
+    assert a == e
