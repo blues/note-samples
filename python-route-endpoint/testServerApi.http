@@ -1,0 +1,37 @@
+#@port = 8443
+@port = 5000
+
+
+@url = http://localhost:{{port}}
+#@url = http://167.172.15.241:5000
+
+### POST measurement
+POST {{url}}/measurements
+Content-Type: application/json
+
+{
+    "device": "dev:xxxxxxxxxxxxxxx",
+    "when": 1627495494,
+    "body": {
+        "type": "type1",
+        "value": 13.3,
+        "units":"unit1"
+    }
+}
+
+### POST alert
+POST {{url}}/alerts
+Content-Type: application/json
+
+{
+    "device": "dev:xxxxxxxxxxxxxxx",
+    "when": 1627495494,
+    "body": {
+        "type": "type1",
+        "message":"this is an alert"
+    }
+}
+
+
+### GET alert list
+GET {{url}}/alerts

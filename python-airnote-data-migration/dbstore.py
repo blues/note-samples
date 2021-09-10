@@ -113,7 +113,7 @@ class dbstore():
               temperature FLOAT,
               voltage FLOAT,
               sensor STRING,
-        UNIQUE(device_id));""")
+        UNIQUE(event_id));""")
 
 
 

@@ -148,6 +148,7 @@ def test_addMeasurement_sameEventMultipleTimes():
     assert temperature == 13.0
 
     data = {"temperature":17.0}
+    deviceId = "dev:yyyyyyyyyyyyy"
     s.addMeasurement(deviceId, timestamp, data, location, eventUid)
 
     c = s._cursor.execute('SELECT COUNT(*) from airdata')
