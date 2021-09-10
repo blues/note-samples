@@ -1,0 +1,31 @@
+#@url = http://localhost
+@url = http://localhost:8443
+#@url = http://167.172.15.241:5000
+
+### GET first chunk
+#GET {{url}}/download?file=downloader-example.png&chunk=1
+POST {{url}}/measurements
+Content-Type: application/json
+
+{
+    "device": "dev:xxxxxxxxxxxxxxx",
+    "when": 1627495494,
+    "body": {
+        "type": "type1",
+        "value": 13.3,
+        "units":"unit1"
+    }
+}
+
+### Get second chunk
+GET {{url}}/download?file=downloader-example.png&chunk=2
+
+
+### Get second to last chunk
+GET {{url}}/download?file=downloader-example.png&chunk=575
+
+### Get last chunk
+GET {{url}}/download?file=downloader-example.png&chunk=576
+
+### Attempt to get chunk beyond last chunk
+GET {{url}}/download?file=downloader-example.png&chunk=577
