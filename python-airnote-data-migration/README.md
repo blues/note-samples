@@ -33,12 +33,11 @@ The QR code on the Airnote has a device identifier of the form `dev:xxxxxxxxxxxx
 
 Add this to the list of devices to query new data from.
 
-In this example, you can append the list of devices by adding the device to the data store with the `addDevice` method:
-```python
-import dbstore
+From the system command promp, you can use
+```bash
 
-store = dbstore.dbstore(file="dbFileName")
-store.addDevice("dev:xxxxxxxxxxxxxx")
+python main.py -a dev:xxxxxxxxxxxxxxx
+
 ```
 
 ### Get Airnote PIN
@@ -53,20 +52,38 @@ Store the Airnote in your Python application system environment:
 
 **Linux**
 ```bash
-$ NOTEHUB_PIN=XXXXXX
+NOTEHUB_PIN=XXXXXX
 ```
 
 **Windows**
 ```shell
-> set NOTEHUB_PIN=XXXXXX
+set NOTEHUB_PIN=XXXXXX
 ```
 
-### Execute Application
+### Migrate Airnote Data
+This will download Airnote data for the Airnotes identified by the device ID that were added via the *Add Airnote Device UID* step above.
 
 ```bash
 python main.py
 ```
 
+### Export Data to CSV
+Output the raw downloaded data to comma-separated value (CSV) file.
+
+```bash
+python main.py -x myFile.csv
+```
+
+To filter to a specific device
+```bash
+python main.py -x myFile.csv -d dev:xxxxxxxxxxxxxx
+```
+
+### Help on this application
+You can view the help for this app by entering the following at the system command prompt
+```bash
+python main.py -h
+```
 
 ## Documentation
 
