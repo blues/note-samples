@@ -10,6 +10,10 @@ class dbstore():
         c = self._cursor.execute('INSERT or IGNORE into devices(device_id) VALUES(?)',(id,))
         self._connection.commit()
 
+    def removeDevice(self, id):
+        self._cursor.execute("DELETE FROM devices WHERE device_id = ?",(id,))
+        self._connection.commit()
+
     def getDeviceList(self):
 
         c = self._cursor
@@ -67,6 +71,19 @@ class dbstore():
 
         return val[0]
 
+
+    def exportToCsv(self,filename,deviceId=None):
+        import csv
+        cursor = self._cursor
+        query = "SELECT * FROM airdata"
+        if deviceId:
+            query = f"{query} WHERE device_id=\"{deviceId}\"" 
+
+        c = cursor.execute(query)
+        with open(filename, "w") as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow([i[0] for i in c.description])
+            csv_writer.writerows(c)
 
     def _connectToDb(self,file) -> None:
         self._connection = sqlite3.connect(file)
