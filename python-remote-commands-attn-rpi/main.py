@@ -16,6 +16,8 @@ import sys
 import signal
 from multiprocessing import Lock
 
+import time
+
 
 
 try: 
@@ -68,9 +70,12 @@ commandMap = {"print": print, "count": count}
 taskList = []
 taskMutex = Lock()
 def addTask(f, a):
-    taskList.append((f,a))
+    with taskMutex:
+        log.debug("Adding task")
+        taskList.append((f,a))
 
 def executeTask(t):
+    log.debug("Executing task")
     f = t[0]
     a = t[1]
     f(a)
@@ -78,9 +83,8 @@ def executeTask(t):
 def enqueueCommands(card):
     
     req = {"req":"note.get","file":remoteCommandQueue,"delete":True}
-    
+
     while True:
-        
         rsp = card.Transaction(req)
         if "err" in rsp and str.__contains__(rsp["err"], "{note-noexist}"):
             break
@@ -91,12 +95,11 @@ def enqueueCommands(card):
 
         body = rsp["body"]
 
-        with taskMutex:
-            for c in body.items():
-                command = c[0]
-                arguments = c[1]
-                if command in commandMap:
-                    addTask(commandMap[command], arguments)
+        for c in body.items():
+            command = c[0]
+            arguments = c[1]
+            if command in commandMap:
+                addTask(commandMap[command], arguments)
         
 
 
@@ -136,7 +139,7 @@ def startTaskLoop():
         with taskMutex:
             while len(taskList) > 0:
                 t = taskList.pop(0)
-                executeTask(t)
+                executeTask(t)          
 
 
 GPIO.setmode(GPIO.BCM)
