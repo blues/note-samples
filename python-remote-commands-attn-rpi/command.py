@@ -1,6 +1,9 @@
 
 class CommandManager():
     _Catalog = {}
+    def __init__(self) -> None:
+        self._Catalog = {}
+
     def _submitTask(self, f, a):
         pass
 
