@@ -34,15 +34,28 @@ def ReadCommands(card):
 
 
 def Arm(card) -> None:
-    req = {"req":"card.attn","mode":"arm"}
+    req = {"req":"card.attn","mode":"rearm"}
     card.Transaction(req)
 
+def Disarm(card) -> None:
+    req = {"req":"card.attn","mode":"disarm"}
+    card.Transaction(req)
+
+def Initialize(card) -> None:
+    Disarm(card)
+
+    req = {"req":"card.attn","mode":"files","files":[remoteCommandQueue]}
+    card.Transaction(req)
+
+    Arm(card)
 
 def QueryTriggerSource(card) -> dict:
     req = {"req":"card.attn"}
     return card.Transaction(req)
 
-def ProcessAttnInfo(card, info) -> None:
+def ProcessAttnInfo(card, info=None) -> None:
+    if not info:
+        info = QueryTriggerSource(card)
     
     if "files" in info: 
         files = info["files"]
