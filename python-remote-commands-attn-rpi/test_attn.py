@@ -9,7 +9,27 @@ def test_ArmAttn():
 
     attn.Arm(c)
 
-    c.Transaction.assert_called_once_with({"req":"card.attn","mode":"arm"})
+    c.Transaction.assert_called_once_with({"req":"card.attn","mode":"rearm"})
+
+def test_DisarmAttn():
+    c = Mock()
+    c.Transaction.return_value={}
+
+    attn.Disarm(c)
+
+    c.Transaction.assert_called_once_with({"req":"card.attn","mode":"disarm"})
+
+
+def test_Initialize():
+    c = Mock()
+    c.Transaction.return_value = {}
+
+    attn.Initialize(c)
+
+    assert c.Transaction.call_count == 3
+    assert c.Transaction.call_args_list[0][0][0] == {"req":"card.attn","mode":"disarm"}
+    assert c.Transaction.call_args_list[1][0][0] == {"req":"card.attn","mode":"files","files":["commands.qi"]}
+    assert c.Transaction.call_args_list[2][0][0] == {"req":"card.attn","mode":"rearm"}
 
 
 def test_QueryTriggerSource_noTrigger():
@@ -54,6 +74,14 @@ def test_ProcessAttnInfo_moreThanOneFile(rcMock):
 
     rcMock.assert_called_once_with(card)
 
+
+@patch('attn.ReadCommands')
+def test_ProcessAttnInfo_defaultInfoArg(rcMock):
+    card = Mock()
+    card.Transaction.return_value = {"files":["anotherfile.qi"]}
+    attn.ProcessAttnInfo(card)
+
+    card.Transaction.assert_called_once_with({"req":"card.attn"})
 
 @patch('attn.ReadCommands')
 def test_ProcessAttnInfo_noCommandFile(rcMock):
