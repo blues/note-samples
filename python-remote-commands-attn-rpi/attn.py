@@ -8,6 +8,13 @@ remoteCommandQueue = "commands.qi"
 def isEndOfQueueErr(e):
     return str.__contains__(e, "{note-noexist}")
 
+def _extractAndEnqueueCommands(body):
+    for c in body.items():
+        command = c[0]
+        args = tuple(c[1]) if isinstance(c[1],list) else (c[1],)
+        CM.Enqueue(command, args)
+
+
 def ReadCommands(card):
     req = {"req":"note.get","file":remoteCommandQueue,"delete":True}
 
@@ -21,10 +28,7 @@ def ReadCommands(card):
             continue
 
         body = rsp["body"]
-        for c in body.items():
-            command = c[0]
-            args = tuple(c[1]) if isinstance(c[1],list) else (c[1],)
-            CM.Enqueue(command, args)
+        _extractAndEnqueueCommands(body)
 
 
 
