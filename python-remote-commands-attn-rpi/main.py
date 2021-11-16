@@ -71,15 +71,25 @@ CM.SetSubmitTaskFn(commandTasks.Add)
 
 AttnFired = False
 
+<<<<<<< HEAD
 def startMainLoop():
     global AttnFired
     #Infinite loop that processes tasks
+=======
+def startTaskLoop():
+    global AttnFired
+    #Infinite loop that processes tasks in the task queue
+>>>>>>> 0752e29a803fe8f0c8af511ead9ebbc2cfa35c6f
     while True:
         if AttnFired:
             info = attn.QueryTriggerSource(card)
             attn.ProcessAttnInfo(card, info)
             attn.Arm(card)
             AttnFired = False
+<<<<<<< HEAD
+=======
+            continue
+>>>>>>> 0752e29a803fe8f0c8af511ead9ebbc2cfa35c6f
 
         commandTasks.ExecuteAll()
 
@@ -130,7 +140,11 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
 
 
+<<<<<<< HEAD
     startMainLoop()
+=======
+    startTaskLoop()
+>>>>>>> 0752e29a803fe8f0c8af511ead9ebbc2cfa35c6f
 
 
 
