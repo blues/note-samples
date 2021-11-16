@@ -71,16 +71,15 @@ CM.SetSubmitTaskFn(commandTasks.Add)
 
 AttnFired = False
 
-def startTaskLoop():
+def startMainLoop():
     global AttnFired
-    #Infinite loop that processes tasks in the task queue
+    #Infinite loop that processes tasks
     while True:
         if AttnFired:
             info = attn.QueryTriggerSource(card)
             attn.ProcessAttnInfo(card, info)
             attn.Arm(card)
             AttnFired = False
-            continue
 
         commandTasks.ExecuteAll()
 
@@ -131,7 +130,7 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
 
 
-    startTaskLoop()
+    startMainLoop()
 
 
 

@@ -12,5 +12,5 @@ X-Session-Token: {{$NOTEHUB_ACCESS_TOKEN}}
     "file":"commands.qi",
     "body":{{commands}},
     "device":"{{$DEVICE_UID}}",
-    "project":"{{$APP_UID}}"
+    "project":"{{$PROJECT_UID}}"
 }
