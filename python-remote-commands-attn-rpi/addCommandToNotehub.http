@@ -1,0 +1,16 @@
+
+@apiHost = https://api.staging.blues.tools/req
+
+@commands = {"print":"hello","count":{"min":1,"inc":2,"max":7}}
+POST {{apiHost}}
+Content-Type: application/json
+X-Session-Token: {{$NOTEHUB_ACCESS_TOKEN}}
+
+
+{
+    "req":"note.add",
+    "file":"commands.qi",
+    "body":{{commands}},
+    "device":"{{$DEVICE_UID}}",
+    "project":"{{$PROJECT_UID}}"
+}
