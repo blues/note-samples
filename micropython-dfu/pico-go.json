@@ -1,0 +1,7 @@
+{
+    "sync_folder": "src",
+    "sync_all_file_types":true,
+    "open_on_start": true,
+    "auto_connect": false,
+	"manual_com_device": "COM30"
+}
