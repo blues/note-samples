@@ -4,8 +4,7 @@ from unittest.mock import patch, mock_open, MagicMock
 import sys
 sys.path.append("..")
 
-#from src.utarfile import Tarfile
-import src.hello
+
 import src.utarfile as utar
 
 import io
@@ -233,7 +232,9 @@ class TestTarBlockIter(unittest.TestCase):
 
 
         self.assertEqual(b._io, f)
-        self.assertEqual(b._start, start)
+        self.assertEqual(b.Start, start)
+        self.assertEqual(b.Length, length)
+        self.assertEqual(b._current_position, -1)
         self.assertEqual(b._bytes_remaining, length)
         self.assertEqual(b._block_length_bytes, utar.BLOCK_LENGTH_BYTES)
 
@@ -258,15 +259,15 @@ class TestTarBlockIter(unittest.TestCase):
         block._block_length_bytes = blockLength
 
         b = next(block)
-        self.assertEqual(b._start, start)
+        self.assertEqual(b._current_position, start)
         self.assertEqual(b._bytes_remaining, length)
 
         b = next(block)
-        self.assertEqual(b._start, start + blockLength)
+        self.assertEqual(b._current_position, start + blockLength)
         self.assertEqual(b._bytes_remaining, length - blockLength)
 
         b = next(block)
-        self.assertEqual(b._start, start + 2*blockLength)
+        self.assertEqual(b._current_position, start + 2*blockLength)
         self.assertEqual(b._bytes_remaining, length - 2*blockLength)
 
         with self.assertRaises(StopIteration):
@@ -274,7 +275,7 @@ class TestTarBlockIter(unittest.TestCase):
 
         
 
-    def test_tarblock_iter_returns_iterable_and_resets_isFirst_flag_to_true(self):
+    def test_tarblock_iter_returns_iterable_and_resets_position_and_bytes_remaining(self):
         f = io.BytesIO(b'aabbc\0')
         start = 0
         length = 5
@@ -287,8 +288,8 @@ class TestTarBlockIter(unittest.TestCase):
         m = iter(block)
 
         self.assertIsInstance(m, Iterable)
-        self.assertTrue(block._isFirst)
-
+        self.assertEqual(block._current_position, -1)
+        self.assertEqual(block._bytes_remaining, length)
 
 
     def test_tarblock_read_return_block_content(self):
@@ -462,8 +463,8 @@ def generateTarHeader(name="", length=0):
 
 def generateTarItem(name="", content=b''):
     length = len(content)
-    b = utar.BLOCK_LENGTH_BYTES
-    bufferLength =  b * (length//b + (length%b)>0)
+    s = utar.BLOCK_LENGTH_BYTES
+    bufferLength =  s * (length//s + int((length%s)>0))
     buf = bytearray(bufferLength)
     buf[0:length] = content
     return generateTarHeader(name, length) + buf

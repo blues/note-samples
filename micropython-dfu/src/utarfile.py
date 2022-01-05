@@ -29,10 +29,12 @@ class TarFile:
         if self._current_item:
             self.f.seek(self._current_item.BlockEnd)
 
-        self._current_item = self._readHeader()
+        i = self._readHeader()
 
-        if self._current_item is None:
+        if i is None:
             raise StopIteration
+
+        self._current_item = i
 
         return self._current_item
 
@@ -70,20 +72,21 @@ class TarItem:
 class TarBlock:
     def __init__(self, io, start, length, blockLength=BLOCK_LENGTH_BYTES):
         self._io = io
-        self._start = start
+        self.Start = start
+        self.Length = length
+        self._current_position = -1
         self._bytes_remaining = length
         self._block_length_bytes = blockLength
-        self._isFirst = True
 
     def __next__(self):
         if self._bytes_remaining <= 0:
             raise StopIteration
             
-        if self._isFirst:
-            self._isFirst = False
+        if self._current_position < 0:
+            self._current_position = self.Start
             return self
 
-        self._start += self._block_length_bytes
+        self._current_position += self._block_length_bytes
         self._bytes_remaining -= self._block_length_bytes
 
         if self._bytes_remaining <= 0:
@@ -96,10 +99,11 @@ class TarBlock:
         return self
 
     def read(self):
-
-        self._io.seek(self._start)
+        
         numBytesToRead = self._bytes_remaining if self._bytes_remaining < self._block_length_bytes else self._block_length_bytes
-
+        
+        p = self._current_position if self._current_position >=0 else self.Start
+        self._io.seek(p)
         return self._io.read(numBytesToRead)
 
     def readinto(self, buffer):
@@ -108,7 +112,8 @@ class TarBlock:
         if len(buffer) > numBytesToRead:
             buffer = memoryview(buffer)[0:numBytesToRead]
 
-        self._io.seek(self._start)
+        p = self._current_position if self._current_position >=0 else self.Start
+        self._io.seek(p)
 
         return self._io.readinto(buffer)
 
@@ -126,7 +131,7 @@ class Type:
     DIR=1
 
 
-# import uctypes
+
 
 # # http://www.gnu.org/software/tar/manual/html_node/Standard.html
 # 
