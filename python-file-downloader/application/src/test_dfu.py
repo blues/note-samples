@@ -60,6 +60,25 @@ def createReaderAndPort():
     r = dfu.dfuReader(nCard)
     return (r, port)
 
+def addWriteableBytesBuffer(port):
+    def writeToBuffer(p, d):
+        p.writebuffer += (d)
+        return len(d)
+
+    port.writebuffer = b''
+    port.write = lambda d: writeToBuffer(port, d)
+
+    return port
+
+def extractRequestsWrittenToBuffer(port):
+    reqListInBytes = port.writebuffer.splitlines()
+    reqList = []
+    for r in reqListInBytes:
+        reqList.append(json.loads(r))
+
+    return reqList
+    
+
 def createReaderWithBinaryContent(c):
     nCard = Mock()
     
@@ -125,12 +144,12 @@ def test_dfuReader_Open_requestsDfuModeAndWaits():
 
 def test_dfuReader_requestDfuModeEntry_sendsRequestToNotecard():
     d, port = createReaderAndPort()
+    port = addWriteableBytesBuffer(port)
+
     setResponse(port, {})
     d._requestDfuModeEntry()
 
-    calls = port.write.call_args_list
-
-    req1 = json.loads(calls[2][0][0])
+    req1 = json.loads(port.writebuffer)
     assert req1["req"] == "hub.set"
     assert req1["mode"] == "dfu"
 
@@ -145,6 +164,7 @@ def test_dfuReader_Open_callsNotecard_errRaisesException():
 
 def test_dfuReader_Open_waitsForDfuMode():
     d, port = createReaderWithMockTimersAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
     d._getTimeSec.return_value = 0
     d.GetInfo = Mock(return_value = {"length":0})
@@ -152,9 +172,8 @@ def test_dfuReader_Open_waitsForDfuMode():
 
     d.Open()
 
-    calls = port.write.call_args_list
-
-    req1 = json.loads(calls[3][0][0])
+    reqList = extractRequestsWrittenToBuffer(port)
+    req1 = reqList[1]
     assert req1["req"] == "dfu.get"
     
 
@@ -210,12 +229,12 @@ def test_dfuReader_Open_setsReaderLengthProp():
 
 def test_dfuReader_requestDfuModeExit_callsNotecard():
     d, port = createReaderAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
 
     d._requestDfuModeExit()
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = json.loads(port.writebuffer)
     assert req1["req"] == "hub.set"
     assert req1["mode"] == "dfu-completed"
 
@@ -662,15 +681,15 @@ def test_getUpdateInfo_when_not_available():
 
 def test_setUpdateDone_providesStatusToNotecard():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
     message = "mark completed"
 
     dfu.setUpdateDone(nCard, message)
 
-    
+    reqList = extractRequestsWrittenToBuffer(port)
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = reqList[0]
     assert req1["req"] == "dfu.status"
     assert req1["stop"] == True
     assert req1["status"] == message
@@ -691,15 +710,16 @@ def test_setUpdateDone_transationFailsRaisesException():
 
 def test_setUpdateError_providesStatusToNotecard():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
+
     setResponse(port, {})
     message = "mark failure"
 
     dfu.setUpdateError(nCard, message)
 
-    
+    reqList = extractRequestsWrittenToBuffer(port)
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = reqList[0]
     assert req1["req"] == "dfu.status"
     assert req1["stop"] == True
     assert req1["err"] == message
@@ -708,12 +728,12 @@ def test_setUpdateError_providesStatusToNotecard():
 
 def test_enableUpdate_sendsRequestToNotecard():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
     
     dfu.enableUpdate(nCard)
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = extractRequestsWrittenToBuffer(port)[0]
     assert req1["req"] == "dfu.status"
     assert req1["on"] == True
 
@@ -730,12 +750,12 @@ def test_enableUpdate_NotecardReturnsErrorRaiseException():
 
 def test_disableUpdate_sendsRequestToNotecard():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
     
     dfu.disableUpdate(nCard)
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = extractRequestsWrittenToBuffer(port)[0]
     assert req1["req"] == "dfu.status"
     assert req1["off"] == True
 
@@ -755,13 +775,16 @@ def test_disableUpdate_NotecardReturnsErrorRaiseException():
 
 def test_openDfuForRead():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {"mode":"ready","body":{"length":5000}})
     with dfu.openDfuForRead(nCard) as r:
-        req = json.loads(port.write.call_args_list[3][0][0])
-        assert req["req"] == 'dfu.get'
         assert (r.__class__ is dfu.dfuReader)
 
-    req = json.loads(port.write.call_args_list[5][0][0])
+    reqList = port.writebuffer.splitlines()
+    req = json.loads(reqList[1])
+    assert req["req"] == 'dfu.get'
+
+    req = json.loads(reqList[3])
     assert req["mode"] == 'dfu-completed'
 
 def test_openDfuForRead_mockReader():
@@ -854,13 +877,13 @@ def test_copyImageToWriter_callsProgressUpdaterWithPercentCompletion():
 
 def test_setVersion_SendsNotecardRequest():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
+
     setResponse(port, {})
     verString = "2.5.7.11"
 
     dfu.setVersion(nCard, verString)
 
-    calls = port.write.call_args_list
-
-    req1 = json.loads(calls[2][0][0])
+    req1 = extractRequestsWrittenToBuffer(port)[0]
     assert req1["req"] == "dfu.status"
     assert req1["version"] == verString
