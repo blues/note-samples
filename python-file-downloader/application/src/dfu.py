@@ -1,7 +1,6 @@
 from time import time, sleep
 import binascii
 import hashlib
-from contextlib import contextmanager
 
 class dfuReader:
     OpenTimeoutSec = 120
@@ -192,15 +191,24 @@ def setVersion(card, version):
     _cardTransactionFailsOnNotecardErrorMessage(card,
                     {"req":"dfu.status","version":version})
 
-@contextmanager
+
+class _dfuReader_ContextManager(object):
+    def __init__(self, reader):
+        self.reader = reader
+    
+    def __enter__(self):
+        self.reader.Open()
+        return self.reader
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.reader.Close()
+
 def openDfuForRead(card, reader=None):
     if reader==None:
         reader = dfuReader(card)
-    reader.Open()
-    try:
-        yield reader
-    finally:
-        reader.Close()
+    
+    return _dfuReader_ContextManager(reader)
+
 
 def copyImageToWriter(card, writer, size=4096, reader=None,progressUpdater=lambda m:None):
 
