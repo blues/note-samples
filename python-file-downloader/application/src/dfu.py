@@ -1,5 +1,5 @@
 from time import time, sleep
-import base64
+import binascii
 import hashlib
 from contextlib import contextmanager
 
@@ -129,7 +129,7 @@ class dfuReader:
         if "payload" not in rsp:
             raise Exception(f"No content available at {start} with length {length}")
 
-        content = base64.b64decode(rsp["payload"])
+        content = binascii.a2b_base64(rsp["payload"])
 
         expectedMD5 = rsp["status"]
         md5 = hashlib.md5(content).hexdigest()
