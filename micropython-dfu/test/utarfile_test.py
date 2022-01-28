@@ -1,3 +1,4 @@
+# type: ignore
 from typing import Iterable
 import unittest
 from unittest.mock import patch, mock_open, MagicMock

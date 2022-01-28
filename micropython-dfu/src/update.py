@@ -1,5 +1,5 @@
 import sys
-if sys.implementation.name == 'cpython':
+if sys.implementation.name == 'cpython':  # type: ignore
     sys.path.append("src")
 
 import os
@@ -16,49 +16,53 @@ class UpdateManager():
         self._dfu = dfu
         self._statusUpdater = statusUpdater
 
-    def migrateAndInstall(self, reset=False):
-        pass
-
-        # if DFU not available
-             # self._statusUpdater("No update available", None)
-            # return
+    def migrateAndInstall(self, restart=False):
         
-        # try
-          # stage = "migrate file"
-          # self._statusUpdater(stage)
-          # fileName = self.gather()
-          # stage = "extract update content"
-          # self._statusUpdater(stage)
-          # self.extract(fileName)
-          # stage = "mark update complete"
-          # self._statusUpdater(stage)
-          # self._dfu.setUpdateDone('migrated and extracted update')
-          # if reset:
-          #   stage = "reset"
-          #   self._statusUpdater(stage)
-          #   self.restart()
-        # except Exception as e:
-           # self._statusUpdater(f"Failed to {stage}", None)
-           # self._dfu.setUpdateError(self._card, f"failed to {stage}")
-           # return
 
+        isAvailable = self._dfu.isUpdateAvailable(self._card)
+        if not isAvailable:
+            self._statusUpdater("No update available", None)
+            return
+        
+        stage = ""
+        try:
+            stage = "migrate file"
+            self._statusUpdater(stage)
+            fileName = self.gather()
+            stage = "extract update content"
+            self._statusUpdater(stage)
+            self.extract(fileName)
+            stage = "mark update complete"
+            self._statusUpdater(stage)
+            self._dfu.setUpdateDone(self._card, 'migrated and extracted update')
+            
+        except Exception as e:
+            self._statusUpdater(f"failed to {stage}")
+            self._dfu.setUpdateError(self._card, f"failed to {stage}")
+            return
+
+        if restart:
+            stage = "restart"
+            self._statusUpdater(stage)
+            try:
+                self.restart()
+            except Exception as e:
+                self._statusUpdater(f"failed to {stage}")
+                return
         
 
         
     
     def gather(self) -> str:
 
-        isAvailable = self._dfu.isUpdateAvailable(self._card)
-        if not isAvailable:
-            self._statusUpdater("No update available", None)
-            return ""
-        
-        
         info = self._dfu.getUpdateInfo(self._card)
+        if info is None:
+            raise Exception("failed to get update info")
+
         filename = info["source"]
 
         try:
-            with open(filename, "wb") as f:
+            with open(filename, "wb") as f: #type: ignore
                 p = lambda x:self._statusUpdater("Migrating", x)
                 self._dfu.copyImageToWriter(self._card, f, progressUpdater=p)
 
@@ -74,7 +78,7 @@ class UpdateManager():
 
     def extract(self, filename)-> None:
         
-        with  open(filename, 'rb') as f:
+        with  open(filename, 'rb') as f: # type: ignore
             t = utar.TarFile(f)
             for i in t:
                 if i.Type is utar.Type.DIR:
@@ -89,7 +93,7 @@ class UpdateManager():
 
     def _writeTarItemToFile(self, item):
         
-        with open(item.Name, "wb") as f:
+        with open(item.Name, "wb") as f: # type: ignore
             buf = bytearray(utar.BLOCK_LENGTH_BYTES)
             for b in item.Blocks:
                 numBytes = b.readinto(buf)
@@ -100,7 +104,8 @@ class UpdateManager():
     
 
     def restart(self) -> None:
-        pass
+        raise NotImplementedError
+        
 
 
 def isUpdateAvailable(card):

@@ -29,24 +29,121 @@ class UpdateManagerTest(unittest.TestCase):
 
         self.assertEqual(m._statusUpdater, s)
 
-    def test_gather_noUpdateAvailable_returns_None_provides_status_message(self):
+    def test_migrateAndInstall_noUpdateAvailable_provides_status_message(self):
         card = MagicMock()
         s = MagicMock()
         m = update.UpdateManager(card=card, statusUpdater=s)
-        m._dfu = MagicMock()
+        m._dfu = MagicMock() # type: ignore
         m._dfu.isUpdateAvailable.return_value = False
 
-        f = m.gather()
+        m.migrateAndInstall()
 
-        self.assertEqual(f, "")
         s.assert_called_once_with("No update available", None)
+
+    def test_migrateAndInstall_gatherFails_provides_status_message(self):
+        card = MagicMock()
+        s = MagicMock()
+        m = update.UpdateManager(card=card, statusUpdater=s)
+        m._dfu = MagicMock() # type: ignore
+        m._dfu.isUpdateAvailable.return_value = True
+        m.gather = MagicMock(side_effect=FileExistsError)
+
+        m.migrateAndInstall()
+
+        s.assert_any_call("migrate file")
+        s.assert_any_call("failed to migrate file")
+        m._dfu.setUpdateError.assert_called_once_with(card, "failed to migrate file")
+
+    def test_migrateAndInstall_extractFails_provides_status_message(self):
+        card = MagicMock()
+        s = MagicMock()
+        m = update.UpdateManager(card=card, statusUpdater=s)
+        m._dfu = MagicMock() # type: ignore
+        m._dfu.isUpdateAvailable.return_value = True
+        m.gather = MagicMock(return_value="myupdatefile")
+        m.extract = MagicMock(side_effect=FileExistsError)
+        m.migrateAndInstall()
+
+        m.extract.assert_called_once_with("myupdatefile")
+
+        s.assert_any_call("extract update content")
+        s.assert_any_call("failed to extract update content")
+        m._dfu.setUpdateError.assert_called_once_with(card, "failed to extract update content")
+
+
+    def test_migrateAndInstall_markCompleteFails_provides_status_message(self):
+        card = MagicMock()
+        s = MagicMock()
+        m = update.UpdateManager(card=card, statusUpdater=s)
+        m._dfu = MagicMock() # type: ignore
+        m._dfu.isUpdateAvailable.return_value = True
+        m.gather = MagicMock(return_value="myupdatefile")
+        m.extract = MagicMock()
+        m._dfu.setUpdateDone = MagicMock(side_effect=FileExistsError)
+
+        m.migrateAndInstall()
+
+        m._dfu.setUpdateDone.assert_called_once_with(card, "migrated and extracted update")
+
+        s.assert_any_call("mark update complete")
+        s.assert_any_call("failed to mark update complete")
+        m._dfu.setUpdateError.assert_called_once_with(card, "failed to mark update complete")
+
+
+    def test_migrateAndInstall_restart_enabled(self):
+        card = MagicMock()
+        s = MagicMock()
+        m = update.UpdateManager(card=card, statusUpdater=s)
+        m._dfu = MagicMock() # type: ignore
+        m._dfu.isUpdateAvailable.return_value = True
+        m.gather = MagicMock(return_value="myupdatefile")
+        m.extract = MagicMock()
+        m.restart = MagicMock()  
+
+        m.migrateAndInstall(restart=True)
+
+        m.restart.assert_called_once()
+        
+        s.assert_any_call("restart")
+        
+    def test_migrateAndInstall_restart_disabledByDefault(self):
+        card = MagicMock()
+        s = MagicMock()
+        m = update.UpdateManager(card=card, statusUpdater=s)
+        m._dfu = MagicMock() # type: ignore
+        m._dfu.isUpdateAvailable.return_value = True
+        m.gather = MagicMock(return_value="myupdatefile")
+        m.extract = MagicMock()
+        m.restart = MagicMock()  
+
+        m.migrateAndInstall()
+
+        m.restart.assert_not_called()
+        
+    def test_migrateAndInstall_restartFails_provides_status_message(self):
+        card = MagicMock()
+        s = MagicMock()
+        m = update.UpdateManager(card=card, statusUpdater=s)
+        m._dfu = MagicMock() # type: ignore
+        m._dfu.isUpdateAvailable.return_value = True
+        m.gather = MagicMock(return_value="myupdatefile")
+        m.extract = MagicMock()
+        m.restart = MagicMock(side_effect = FileExistsError)  
+
+        m.migrateAndInstall(restart=True)
+
+        m.restart.assert_called_once()
+        
+        s.assert_any_call("failed to restart")
+        m._dfu.setUpdateError.assert_not_called()
+
 
     @patch("builtins.open", new_callable=mock_open)
     def test_gather_updateAvailable_copiesImageToFile_providesStatusMessages(self, mockOpen):
         card = MagicMock()
         s = MagicMock()
         m = update.UpdateManager(card=card, statusUpdater=s)
-        m._dfu = MagicMock()
+        m._dfu = MagicMock() # type: ignore
         m._dfu.isUpdateAvailable.return_value = True
         fileName = "myfile.tar"
         m._dfu.getUpdateInfo.return_value = {"source": fileName}
@@ -74,7 +171,7 @@ class UpdateManagerTest(unittest.TestCase):
         card = MagicMock()
         s = MagicMock()
         m = update.UpdateManager(card=card, statusUpdater=s)
-        m._dfu = MagicMock()
+        m._dfu = MagicMock() # type: ignore
         m._dfu.isUpdateAvailable.return_value = True
         fileName = "myfile.tar"
         m._dfu.getUpdateInfo.return_value = {"source": fileName}
@@ -147,8 +244,26 @@ class UpdateManagerTest(unittest.TestCase):
 
         mockMkDir.assert_called_once_with("myItem")
 
-        
+    def test_gather_getInfo_returns_none_raise_exception(self):
+        card = MagicMock()
+        m = update.UpdateManager(card=card)
+        m._dfu = MagicMock() # type: ignore
+        m._dfu.getUpdateInfo.return_value = None
 
+        with self.assertRaises(Exception) as context: # type: ignore
+            m.gather()
+
+        self.assertEqual(str(context.exception), 'failed to get update info')
+
+
+     
+    def test_reset_generates_error_by_default(self):
+        card = MagicMock()
+        m = update.UpdateManager(card = card)
+        
+        self.assertRaises(NotImplementedError, m.restart)
+
+        
 
 
 def generateTarHeader(name="", length=0):
@@ -158,7 +273,7 @@ def generateTarHeader(name="", length=0):
 
     b = bytes(oct(length)[2:],'utf-8')
 
-    buf[124:135] = bytearray(b).rjust(11,b'0')
+    buf[124:135] = bytearray(b).rjust(11,b'0') # type: ignore
 
     return buf
 
@@ -166,7 +281,7 @@ def generateTarHeader(name="", length=0):
 def generateTarItemBin(name="", content=b''):
     length = len(content)
     s = utar.BLOCK_LENGTH_BYTES
-    bufferLength =  s * (length//s + int((length % s) > 0))
+    bufferLength =  s * (length//s + int((length % s) > 0)) # type: ignore
     buf = bytearray(bufferLength)
     buf[0:length] = content
     header = generateTarHeader(name, length)
@@ -180,41 +295,3 @@ def generateTarItem(name="", content=b''):
     i = utar.TarItem(f, name, type, len(content), utar.HEADER_LENGTH_BYTES)
     return i
 
-
-    
-
-
-    # @patch("builtins.open", new_callable=mock_open, read_data = "{}")
-    # def test_config_loadConfig_fileNameArg_usesFileNameArg(self,mockOpen):
-
-    #     fileName = "testName.json"
-    #     c = config.loadConfig(fileName = fileName)
-
-    #     mockOpen.assert_called_once_with(fileName, 'r')
-
-    
-    # def test_config_loadConfig_returnsConfigFromFile(self):
-
-    #     data = {"product_uid":"dummy_product_uid", "hub_host":"test-host.net"}
-
-    #     with patch("builtins.open", mock_open(read_data=json.dumps(data)), create=True) as mockOpen:
-    
-
-    #         c = config.loadConfig()
-
-    #         self.assertEqual(c.ProductUID, data["product_uid"])
-    #         self.assertEqual(c.HubHost, data["hub_host"])
-
-    # def test_config_loadConfig_no_json_content_returnDefaults(self):
-
-    #     with patch("builtins.open", mock_open(read_data="{}"), create=True) as mockOpen:
-    
-
-    #         c = config.loadConfig()
-
-    #         self.assertIsNone(c.ProductUID)
-    #         self.assertEqual(c.HubHost,config.DEFAULT_HUB_HOST)
-
-    
-        
-        

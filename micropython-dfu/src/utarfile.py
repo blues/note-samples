@@ -4,7 +4,7 @@ HEADER_LENGTH_BYTES = BLOCK_LENGTH_BYTES
 class TarFile:
     
     def __init__(self, f):
-        self.f = open(f, 'rb') if isinstance(f, str) else f
+        self.f = open(f, 'rb') if isinstance(f, str) else f # type: ignore
         self._current_item = None
     
     def _readHeader(self):
@@ -14,14 +14,14 @@ class TarFile:
 
         h = getHeaderContentFromBuffer(buf)
 
-        isHeaderEmpty = h.name[0] == 0
+        isHeaderEmpty = h.name[0] == 0 # type: ignore
         if isHeaderEmpty:
             return None
 
-        name = str(h.name,'utf-8').rstrip('\0')
+        name = str(h.name,'utf-8').rstrip('\0') # type: ignore
         lastChar = name[-1]
         f_type = Type.DIR if lastChar == '/' else Type.FILE
-        length = int(bytes(h.size), 8)
+        length = int(bytes(h.size), 8) # type: ignore
         return TarItem(self.f, name,f_type, length, offset)
 
     def __next__(self):
@@ -137,27 +137,31 @@ class Type:
 # # http://www.gnu.org/software/tar/manual/html_node/Standard.html
 # 
 
+getHeaderContentFromBuffer = lambda x: {"name":"name", "size":0}
+
 
 import sys
-use_micropython = sys.implementation.name == 'micropython'
+use_micropython = sys.implementation.name == 'micropython' # type: ignore
 if use_micropython:
     import uctypes
     TAR_HEADER = {
             "name": (uctypes.ARRAY | 0,   uctypes.UINT8 | 100),
             "size": (uctypes.ARRAY | 124, uctypes.UINT8 | 11),
         }
-    def getHeaderContentFromBuffer(buf):
+    def getHeaderContentFromBufferMP(buf):
         return uctypes.struct(uctypes.addressof(buf), TAR_HEADER, uctypes.LITTLE_ENDIAN)
+    getHeaderContentFromBuffer = getHeaderContentFromBufferMP
 else:
     import struct
-    S = struct.Struct('<100s24x11s')
+    S = struct.Struct('<100s24x11s')  # type: ignore
     class headerContent:
         def __init__(self, name, size):
             self.name = name
             self.size = size
 
-    def getHeaderContentFromBuffer(buf):
+    def getHeaderContentFromBufferCP(buf):
         n, s = S.unpack_from(buf, 0)
         return headerContent(n, s)
 
+    getHeaderContentFromBuffer = getHeaderContentFromBufferCP
 
