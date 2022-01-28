@@ -1,10 +1,13 @@
 from time import time, sleep
 import binascii
-import hashlib
+import sys
+if sys.implementation.name == 'cpython':
+    import hashlib
+else :
+    import hashlibextras as hashlib
 
 class dfuReader:
     OpenTimeoutSec = 120
-    DFUModeResetPeriodSec = 240
 
     _getTimeSec = time
     _sleep = sleep
@@ -13,7 +16,6 @@ class dfuReader:
     _length = 0
     _imageHash = None
     _md5 = hashlib.md5()
-    _dfuModeResetExpiry = 0
 
     def __init__(self, card):
         self.NCard = card
@@ -24,9 +26,6 @@ class dfuReader:
         if not success:
             self._requestDfuModeExit()
             raise(Exception("Notecard failed to enter DFU mode"))
-
-        self._dfuModeResetExpiry = self._getTimeSec() + self.DFUModeResetPeriodSec
-
 
         info = self.GetInfo()
         self._length = info["length"]
@@ -52,10 +51,6 @@ class dfuReader:
 
     def read(self, size=4096, num_retries=5):
 
-        if self._getTimeSec() > self._dfuModeResetExpiry:
-            self._requestDfuModeEntry()
-            self._dfuModeResetExpiry = self._getTimeSec() + self.DFUModeResetPeriodSec
-
         if self._offset + size > self._length:
             size = self._length - self._offset
         
@@ -68,6 +63,7 @@ class dfuReader:
             requestException = None
             try:
                 c = self._requestDfuChunk(self._offset, size)
+                break
             except Exception as e:
                 requestException = e
 

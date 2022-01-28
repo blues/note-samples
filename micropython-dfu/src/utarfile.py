@@ -95,7 +95,8 @@ class TarBlock:
         return self
 
     def __iter__(self):
-        self._isFirst = True
+        self._current_position = -1
+        self._bytes_remaining = self.Length
         return self
 
     def read(self):

@@ -282,8 +282,9 @@ class TestTarBlockIter(unittest.TestCase):
         blockLength = 2
 
         block = utar.TarBlock(f, start, length)
-        block._isFirst = False
-        self.assertFalse(block._isFirst)
+        block._current_position = 13
+        block._bytes_remaining = 17
+        
 
         m = iter(block)
 
@@ -464,7 +465,7 @@ def generateTarHeader(name="", length=0):
 def generateTarItem(name="", content=b''):
     length = len(content)
     s = utar.BLOCK_LENGTH_BYTES
-    bufferLength =  s * (length//s + int((length%s)>0))
+    bufferLength =  s * (length//s + int((length % s) > 0))
     buf = bytearray(bufferLength)
     buf[0:length] = content
     return generateTarHeader(name, length) + buf
