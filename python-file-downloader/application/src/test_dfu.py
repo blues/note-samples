@@ -51,6 +51,12 @@ def setResponseList(port, response):
     port.readline.side_effect =  s
 
 
+def preventHubModeReset(reader, expirySec = 3):
+    reader._getTimeSec = lambda : 0
+    reader._dfuModeResetExpiry = expirySec
+
+    return reader
+
 def createReaderWithMockNotecard(card = Mock()):
     return dfu.dfuReader(card)
 
@@ -59,6 +65,25 @@ def createReaderAndPort():
     nCard, port = createNotecardAndPort()
     r = dfu.dfuReader(nCard)
     return (r, port)
+
+def addWriteableBytesBuffer(port):
+    def writeToBuffer(p, d):
+        p.writebuffer += (d)
+        return len(d)
+
+    port.writebuffer = b''
+    port.write = lambda d: writeToBuffer(port, d)
+
+    return port
+
+def extractRequestsWrittenToBuffer(port):
+    reqListInBytes = port.writebuffer.splitlines()
+    reqList = []
+    for r in reqListInBytes:
+        reqList.append(json.loads(r))
+
+    return reqList
+    
 
 def createReaderWithBinaryContent(c):
     nCard = Mock()
@@ -97,6 +122,8 @@ def test_dfuReader():
 
     assert(d.NCard == nCard)
     assert(d.OpenTimeoutSec == 120)
+    assert d.DFUModeResetPeriodSec == 240
+
 
 def test_dfuReader_privateProperties():
     nCard = Mock()
@@ -125,12 +152,12 @@ def test_dfuReader_Open_requestsDfuModeAndWaits():
 
 def test_dfuReader_requestDfuModeEntry_sendsRequestToNotecard():
     d, port = createReaderAndPort()
+    port = addWriteableBytesBuffer(port)
+
     setResponse(port, {})
     d._requestDfuModeEntry()
 
-    calls = port.write.call_args_list
-
-    req1 = json.loads(calls[2][0][0])
+    req1 = json.loads(port.writebuffer)
     assert req1["req"] == "hub.set"
     assert req1["mode"] == "dfu"
 
@@ -145,6 +172,7 @@ def test_dfuReader_Open_callsNotecard_errRaisesException():
 
 def test_dfuReader_Open_waitsForDfuMode():
     d, port = createReaderWithMockTimersAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
     d._getTimeSec.return_value = 0
     d.GetInfo = Mock(return_value = {"length":0})
@@ -152,9 +180,8 @@ def test_dfuReader_Open_waitsForDfuMode():
 
     d.Open()
 
-    calls = port.write.call_args_list
-
-    req1 = json.loads(calls[3][0][0])
+    reqList = extractRequestsWrittenToBuffer(port)
+    req1 = reqList[1]
     assert req1["req"] == "dfu.get"
     
 
@@ -206,16 +233,30 @@ def test_dfuReader_Open_setsReaderLengthProp():
 
     assert d._length == length
 
+def test_dfuReader_Open_setsDFUModeResetExpiry():
+    d = createReaderWithMockNotecard()
+    d._requestDfuModeEntry = Mock()
+    d._waitForDfuMode = Mock(return_value=True)
+    d.GetInfo = Mock(return_value = {"length":0})
+
+    assert d._dfuModeResetExpiry == 0
+
+    d._getTimeSec = lambda : 17
+
+    d.Open()
+
+    assert d._dfuModeResetExpiry == 17 + d.DFUModeResetPeriodSec
+
             
 
 def test_dfuReader_requestDfuModeExit_callsNotecard():
     d, port = createReaderAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
 
     d._requestDfuModeExit()
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = json.loads(port.writebuffer)
     assert req1["req"] == "hub.set"
     assert req1["mode"] == "dfu-completed"
 
@@ -255,6 +296,8 @@ def test_dfuReader_Seek_updatesOffsetProp():
 def test_dfuReader_Read_UpdatesOffsetByLengthOfReadContent():
     content = b'here is my chunk content'
     d = createReaderWithBinaryContent(content)
+    d = preventHubModeReset(d)
+
     size = len(content)
 
     assert d._offset == 0
@@ -265,6 +308,8 @@ def test_dfuReader_Read_UpdatesOffsetByLengthOfReadContent():
 
 def test_dfuReader_Read_offsetPointerBeyondContentLength():
     d = createReaderWithMockNotecard()
+    d = preventHubModeReset(d)
+
     d._length = 17
     d._offset = 18
 
@@ -275,6 +320,8 @@ def test_dfuReader_Read_offsetPointerBeyondContentLength():
 
 def test_dfuReader_Read_sizeBeyondContentLength():
     d = createReaderWithBinaryContent(b'aaaaabbbbbbcccccccccccccccccccccccccccccccccc')
+    d = preventHubModeReset(d)
+
     d._length = 11
     d._offset = 5
     size = 31
@@ -289,6 +336,8 @@ def test_dfuReader_Read_MultipleTimes_readsSubsequentChunks():
     payload1 = b'chunk 1'
     payload2 = b'chunk 2'
     d = createReaderWithBinaryContent(payload1+payload2)
+    d = preventHubModeReset(d)
+
     size1 = len(payload1)
     size2 = len(payload2)
     
@@ -307,6 +356,8 @@ def test_dfuReader_Read_UpdatesMd5():
     payload2 = b'chunk 2'
     payload = payload1 + payload2
     d = createReaderWithBinaryContent(payload)
+    d = preventHubModeReset(d)
+
     d.reset_hash()
     
     size1 = len(payload1)
@@ -389,6 +440,8 @@ def test_dfuReader_Read_tooManyFailedReadsRaisesException():
     nc = Mock()
     nc.Transaction.return_value = {"err":"error message"}
     d = createReaderWithMockNotecard(nc)
+    d = preventHubModeReset(d)
+
     d._length = 1
 
     num_retries = 2
@@ -404,6 +457,8 @@ def test_dfuReader_Read_chunkReadFails_RaisesException():
     nc = Mock()
     nc.Transaction.return_value = {"err":"error message"}
     d = createReaderWithMockNotecard(nc)
+    d = preventHubModeReset(d)
+
     d._length = 1
     
     num_retries = 2
@@ -412,6 +467,34 @@ def test_dfuReader_Read_chunkReadFails_RaisesException():
         c = d.read(num_retries=num_retries)
     assert d._offset == 0
     assert nc.Transaction.call_count == num_retries
+
+
+def test_dfuReader_Read_RequestsDFUModeAfterExpiryPeriod_AndUpdatesExpiry():
+    d = createReaderWithMockNotecard()
+    d._requestDfuModeEntry = Mock()
+    d._requestDfuChunk = Mock(return_value=b"abcd")
+    currentTimeSec = 3
+    d._getTimeSec = lambda : currentTimeSec
+    d._dfuModeResetExpiry = 0
+
+    d.read()
+
+    d._requestDfuModeEntry.assert_called_once()
+    assert d._dfuModeResetExpiry == currentTimeSec + d.DFUModeResetPeriodSec
+
+def test_dfuReader_Read_DoesNotRequestDFUModeBeforeExpiryPeriod():
+    d = createReaderWithMockNotecard()
+    d._requestDfuModeEntry = Mock()
+    d._requestDfuChunk = Mock(return_value=b"abcd")
+    d._getTimeSec = lambda : 0
+    d._dfuModeResetExpiry = 1
+
+    d.read()
+
+    d._requestDfuModeEntry.assert_not_called()
+    assert d._dfuModeResetExpiry == 1
+
+
 
 
 def test_dfuReader_requestDfuChunk_md5Mismatch_raisesException():
@@ -448,6 +531,8 @@ def test_dfuReader_requestDfuChunk_returnsContent():
 def test_dfuReader_ReadToWriter_CopiesReadContentToWriter():
     content = b'here is my chunk content'
     d = createReaderWithBinaryContent(content)
+    d = preventHubModeReset(d)
+
     w = io.BytesIO(b"")
 
     s = d.read_to_writer(w)
@@ -457,6 +542,7 @@ def test_dfuReader_ReadToWriter_CopiesReadContentToWriter():
 
 def test_dfuReader_ReadToWriter_ReturnsNumBytesWritten():
     r = createReaderWithBinaryContent(b'a')
+    r = preventHubModeReset(r)
     n = 1
     w = Mock()
     w.write.return_value = n
@@ -470,6 +556,8 @@ def test_dfuReader_ReadToWriter_tooManyFailedReadsRaisesException():
     nc = Mock()
     nc.Transaction.return_value = {"err":"error message"}
     d = createReaderWithMockNotecard(nc)
+    d = preventHubModeReset(d)
+    
     w = Mock()
     d._length = 1
 
@@ -487,6 +575,8 @@ def test_dfuReader_ReadToWriter_MultipleTimes_writesSubsequentChunks():
     payload1 = b'chunk 1'
     payload2 = b'chunk 2'
     d = createReaderWithBinaryContent(payload1+payload2)
+    d = preventHubModeReset(d)
+
     size1 = len(payload1)
     size2 = len(payload2)
     
@@ -662,15 +752,15 @@ def test_getUpdateInfo_when_not_available():
 
 def test_setUpdateDone_providesStatusToNotecard():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
     message = "mark completed"
 
     dfu.setUpdateDone(nCard, message)
 
-    
+    reqList = extractRequestsWrittenToBuffer(port)
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = reqList[0]
     assert req1["req"] == "dfu.status"
     assert req1["stop"] == True
     assert req1["status"] == message
@@ -691,15 +781,16 @@ def test_setUpdateDone_transationFailsRaisesException():
 
 def test_setUpdateError_providesStatusToNotecard():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
+
     setResponse(port, {})
     message = "mark failure"
 
     dfu.setUpdateError(nCard, message)
 
-    
+    reqList = extractRequestsWrittenToBuffer(port)
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = reqList[0]
     assert req1["req"] == "dfu.status"
     assert req1["stop"] == True
     assert req1["err"] == message
@@ -708,12 +799,12 @@ def test_setUpdateError_providesStatusToNotecard():
 
 def test_enableUpdate_sendsRequestToNotecard():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
     
     dfu.enableUpdate(nCard)
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = extractRequestsWrittenToBuffer(port)[0]
     assert req1["req"] == "dfu.status"
     assert req1["on"] == True
 
@@ -730,12 +821,12 @@ def test_enableUpdate_NotecardReturnsErrorRaiseException():
 
 def test_disableUpdate_sendsRequestToNotecard():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {})
     
     dfu.disableUpdate(nCard)
 
-    calls = port.write.call_args_list
-    req1 = json.loads(calls[2][0][0])
+    req1 = extractRequestsWrittenToBuffer(port)[0]
     assert req1["req"] == "dfu.status"
     assert req1["off"] == True
 
@@ -755,13 +846,16 @@ def test_disableUpdate_NotecardReturnsErrorRaiseException():
 
 def test_openDfuForRead():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
     setResponse(port, {"mode":"ready","body":{"length":5000}})
     with dfu.openDfuForRead(nCard) as r:
-        req = json.loads(port.write.call_args_list[3][0][0])
-        assert req["req"] == 'dfu.get'
         assert (r.__class__ is dfu.dfuReader)
 
-    req = json.loads(port.write.call_args_list[5][0][0])
+    reqList = port.writebuffer.splitlines()
+    req = json.loads(reqList[1])
+    assert req["req"] == 'dfu.get'
+
+    req = json.loads(reqList[3])
     assert req["mode"] == 'dfu-completed'
 
 def test_openDfuForRead_mockReader():
@@ -802,6 +896,8 @@ def test_copyImageToWriter():
 def test_dfuReader_readToWriter_readsNoContent():
     nCard, port = createNotecardAndPort()
     reader = dfu.dfuReader(nCard)
+    reader = preventHubModeReset(reader)
+
     writer = Mock()
 
     n = reader.read_to_writer(writer)
@@ -854,13 +950,13 @@ def test_copyImageToWriter_callsProgressUpdaterWithPercentCompletion():
 
 def test_setVersion_SendsNotecardRequest():
     nCard, port = createNotecardAndPort()
+    port = addWriteableBytesBuffer(port)
+
     setResponse(port, {})
     verString = "2.5.7.11"
 
     dfu.setVersion(nCard, verString)
 
-    calls = port.write.call_args_list
-
-    req1 = json.loads(calls[2][0][0])
+    req1 = extractRequestsWrittenToBuffer(port)[0]
     assert req1["req"] == "dfu.status"
     assert req1["version"] == verString

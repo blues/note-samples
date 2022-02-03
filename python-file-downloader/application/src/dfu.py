@@ -1,10 +1,10 @@
 from time import time, sleep
-import base64
+import binascii
 import hashlib
-from contextlib import contextmanager
 
 class dfuReader:
     OpenTimeoutSec = 120
+    DFUModeResetPeriodSec = 240
 
     _getTimeSec = time
     _sleep = sleep
@@ -13,6 +13,7 @@ class dfuReader:
     _length = 0
     _imageHash = None
     _md5 = hashlib.md5()
+    _dfuModeResetExpiry = 0
 
     def __init__(self, card):
         self.NCard = card
@@ -23,6 +24,9 @@ class dfuReader:
         if not success:
             self._requestDfuModeExit()
             raise(Exception("Notecard failed to enter DFU mode"))
+
+        self._dfuModeResetExpiry = self._getTimeSec() + self.DFUModeResetPeriodSec
+
 
         info = self.GetInfo()
         self._length = info["length"]
@@ -47,6 +51,10 @@ class dfuReader:
         self._offset = v
 
     def read(self, size=4096, num_retries=5):
+
+        if self._getTimeSec() > self._dfuModeResetExpiry:
+            self._requestDfuModeEntry()
+            self._dfuModeResetExpiry = self._getTimeSec() + self.DFUModeResetPeriodSec
 
         if self._offset + size > self._length:
             size = self._length - self._offset
@@ -129,7 +137,7 @@ class dfuReader:
         if "payload" not in rsp:
             raise Exception(f"No content available at {start} with length {length}")
 
-        content = base64.b64decode(rsp["payload"])
+        content = binascii.a2b_base64(rsp["payload"])
 
         expectedMD5 = rsp["status"]
         md5 = hashlib.md5(content).hexdigest()
@@ -192,15 +200,24 @@ def setVersion(card, version):
     _cardTransactionFailsOnNotecardErrorMessage(card,
                     {"req":"dfu.status","version":version})
 
-@contextmanager
+
+class _dfuReader_ContextManager(object):
+    def __init__(self, reader):
+        self.reader = reader
+    
+    def __enter__(self):
+        self.reader.Open()
+        return self.reader
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.reader.Close()
+
 def openDfuForRead(card, reader=None):
     if reader==None:
         reader = dfuReader(card)
-    reader.Open()
-    try:
-        yield reader
-    finally:
-        reader.Close()
+    
+    return _dfuReader_ContextManager(reader)
+
 
 def copyImageToWriter(card, writer, size=4096, reader=None,progressUpdater=lambda m:None):
 
