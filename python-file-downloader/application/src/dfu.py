@@ -68,6 +68,7 @@ class dfuReader:
             requestException = None
             try:
                 c = self._requestDfuChunk(self._offset, size)
+                break
             except Exception as e:
                 requestException = e
 
