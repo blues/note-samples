@@ -1,5 +1,6 @@
 
 
+from usys import implementation
 import notecard
 import config
 import update
@@ -16,13 +17,79 @@ import sys
 import time
 
 
-if sys.implementation.name != 'micropython':
-    raise Exception("Please run this example in a MicroPython environment.")
 
-from machine import UART, reset_cause  # noqa: E402
-from machine import I2C  # noqa: E402
-from machine import Pin
-from machine import reset
+    
+if sys.implementation.name == 'micropython':
+    from machine import UART, reset_cause  # noqa: E402
+    from machine import I2C  # noqa: E402
+    from machine import Pin
+    from machine import reset
+
+    
+    def connect_notecard(appConfig):
+        """Connect to Notcard and run a transaction test."""
+        print("Opening port...")
+        use_uart = appConfig.PortType == config.PortType.UART
+        try:
+            if use_uart:
+                port = UART(0, 9600, parity=None, stop=1, bits=8, rx=Pin(17), tx=Pin(16), timeout=1000)
+                
+            else:
+                port = I2C()
+        except Exception as exception:
+            raise Exception("error opening port: "
+                            + NotecardExceptionInfo(exception))
+
+        print("Opening Notecard...")
+        try:
+            if use_uart:
+                card = notecard.OpenSerial(port, debug=appConfig.Debug)
+            else:
+                card = notecard.OpenI2C(port, 0, 0, debug=appConfig.Debug)
+        except Exception as exception:
+            raise Exception("error opening notecard: "
+                            + NotecardExceptionInfo(exception))
+
+        return card
+
+
+elif sys.implementation.name == 'cpython':
+    import serial
+
+    uartPortName = "COM4"
+    def connect_notecard(appConfig):
+        """Connect to Notcard and run a transaction test."""
+        print("Opening port...")
+        use_uart = appConfig.PortType == config.PortType.UART
+
+        if not use_uart:
+            raise Exception("only supports UART in CPython implementations")
+
+        portName = uartPortName
+        if appConfig.PortName != "":
+            portName = appConfig.PortName
+
+        try:
+            port = serial.Serial(port=portName,
+                                 baudrate=appConfig.PortBaudRate)
+        except Exception as exception:
+            raise Exception("error opening port: "
+                            + NotecardExceptionInfo(exception))
+
+        print("Opening Notecard...")
+        try:
+            card = notecard.OpenSerial(port, debug=appConfig.Debug)
+        except Exception as exception:
+            raise Exception("error opening notecard: "
+                            + NotecardExceptionInfo(exception))
+
+        return card
+
+    def reset():
+        pass
+
+else:
+    raise Exception("Please run this example in a MicroPython or CPython environment.")
 
 
 def NotecardExceptionInfo(exception):
@@ -56,34 +123,6 @@ def configure_notecard(card, appConfig):
     except Exception as exception:
         print("Transaction error: " + NotecardExceptionInfo(exception))
         time.sleep(5)
-
-
-use_uart = True
-
-def connect_notecard(appConfig):
-    """Connect to Notcard and run a transaction test."""
-    print("Opening port...")
-    try:
-        if use_uart:
-            port = UART(0, 9600, parity=None, stop=1, bits=8, rx=Pin(17), tx=Pin(16), timeout=1000)
-            
-        else:
-            port = I2C()
-    except Exception as exception:
-        raise Exception("error opening port: "
-                        + NotecardExceptionInfo(exception))
-
-    print("Opening Notecard...")
-    try:
-        if use_uart:
-            card = notecard.OpenSerial(port, debug=True)
-        else:
-            card = notecard.OpenI2C(port, 0, 0, debug=True)
-    except Exception as exception:
-        raise Exception("error opening notecard: "
-                        + NotecardExceptionInfo(exception))
-
-    return card
 
 
 def printStatus(message, percentComplete=None):

@@ -15,6 +15,10 @@ class ConfigTest(unittest.TestCase):
     def test_config_constant_values(self):
         self.assertEqual(config.DEFAULT_SECRETS_FILE_NAME, "secrets.json")
         self.assertEqual(config.DEFAULT_HUB_HOST, "a.notefile.net")
+        self.assertEqual(config.DEFAULT_PORT_TYPE, "uart")
+        self.assertEqual(config.DEFAULT_DEBUG_FLAG, True)
+        self.assertEqual(config.DEFAULT_PORT_NAME, "")
+        self.assertEqual(config.DEFAULT_PORT_BAUDRATE, 9600)
 
     @patch("builtins.open", new_callable=mock_open, read_data = "{}")
     def test_config_loadConfig_noInputArg_usesDefaultFileName(self,mockOpen):
@@ -54,7 +58,10 @@ class ConfigTest(unittest.TestCase):
 
             self.assertIsNone(c.ProductUID)
             self.assertEqual(c.HubHost,config.DEFAULT_HUB_HOST)
-
+            self.assertEqual(c.PortType, config.DEFAULT_PORT_TYPE)
+            self.assertEqual(c.Debug, config.DEFAULT_DEBUG_FLAG)
+            self.assertEqual(c.PortName, config.DEFAULT_PORT_NAME)
+            self.assertEqual(c.PortBaudRate, config.DEFAULT_PORT_BAUDRATE)
     
         
         

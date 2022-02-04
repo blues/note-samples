@@ -2,3 +2,5 @@
 *.tar.*
 .vscode/*/
 secrets.json
+test/integration/src/
+archive/

@@ -37,7 +37,10 @@ class UpdateManager():
             self._dfu.setUpdateDone(self._card, 'migrated and extracted update')
             
         except Exception as e:
-            self._statusUpdater(f"failed to {stage}, error: {str(e)}")
+            self._statusUpdater(f"failed to {stage}")
+            self._statusUpdater(f"error: {str(e)}")
+            self._statusUpdater(f"{type(e).__name__} at line {e.__traceback__.tb_lineno} of {__file__}: {e}")
+            
             self._dfu.setUpdateError(self._card, f"failed to {stage}")
             return
 
