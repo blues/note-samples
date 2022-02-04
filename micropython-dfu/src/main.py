@@ -33,7 +33,8 @@ if sys.implementation.name == 'micropython':
         use_uart = appConfig.PortType == config.PortType.UART
         try:
             if use_uart:
-                port = UART(0, 9600, parity=None, stop=1, bits=8, rx=Pin(17), tx=Pin(16), timeout=1000)
+                uartMethodTimeoutMS = 10000
+                port = UART(0, 9600, parity=None, stop=1, bits=8, rx=Pin(17), tx=Pin(16), timeout=uartMethodTimeoutMS)
                 
             else:
                 port = I2C()
@@ -183,6 +184,7 @@ def main():
             
 
         if isExpiredMS(updateTimer):
+            printStatus(f"Current Version: {version.versionStr}")
             printStatus("Checking for update")
             updateTimer = setTimerMS(10000)
             updateAvailable = dfu.isUpdateAvailable(card)

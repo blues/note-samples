@@ -1,5 +1,7 @@
 #!bash
 
+rm -rf archive
+
 mkdir -p archive
 
 
@@ -11,6 +13,7 @@ sed -i 's/"minor": 0/"minor": 1/' ./archive/version.py
 
 cd archive
 tar cfv ../update.tar *.py
+tar cfv ../update_version.tar version.py
 cd ..
 
 
