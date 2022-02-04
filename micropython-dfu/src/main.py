@@ -30,11 +30,11 @@ if sys.implementation.name == 'micropython':
     def connect_notecard(appConfig):
         """Connect to Notcard and run a transaction test."""
         print("Opening port...")
-        use_uart = appConfig.PortType == config.PortType.UART
+        use_uart = appConfig.PortType == config.PortType.UART or appConfig.PortType == config.PortType.USB
         try:
             if use_uart:
                 uartMethodTimeoutMS = 10000
-                port = UART(0, 9600, parity=None, stop=1, bits=8, rx=Pin(17), tx=Pin(16), timeout=uartMethodTimeoutMS)
+                port = UART(appConfig.PortID, appConfig.PortBaudRate, parity=None, stop=1, bits=8, rx=Pin(17), tx=Pin(16), timeout=uartMethodTimeoutMS)
                 
             else:
                 port = I2C()
@@ -64,22 +64,16 @@ elif sys.implementation.name == 'cpython':
     import serial
     import os
     
-
-    uartPortName = "COM4"
     def connect_notecard(appConfig):
         """Connect to Notcard and run a transaction test."""
         print("Opening port...")
-        use_uart = appConfig.PortType == config.PortType.UART
+        use_uart = appConfig.PortType == config.PortType.UART or appConfig.PortType == config.PortType.USB
 
         if not use_uart:
             raise Exception("only supports UART in CPython implementations")
 
-        portName = uartPortName
-        if appConfig.PortName != "":
-            portName = appConfig.PortName
-
         try:
-            port = serial.Serial(port=portName,
+            port = serial.Serial(port=appConfig.PortID,
                                  baudrate=appConfig.PortBaudRate)
         except Exception as exception:
             raise Exception("error opening port: "
