@@ -19,9 +19,10 @@ import time
 if sys.implementation.name != 'micropython':
     raise Exception("Please run this example in a MicroPython environment.")
 
-from machine import UART  # noqa: E402
+from machine import UART, reset_cause  # noqa: E402
 from machine import I2C  # noqa: E402
 from machine import Pin
+from machine import reset
 
 
 def NotecardExceptionInfo(exception):
@@ -101,8 +102,6 @@ def isExpiredMS(timer):
 def setTimerMS(periodMS):
     return time.ticks_ms() + periodMS
 
-
-
 def main():
 
     appConfig = config.loadConfig("secrets.json")
@@ -110,11 +109,14 @@ def main():
     
     card = connect_notecard(appConfig)
     
+    print(f"Version: {version.versionStr}")
+
     dfu.setVersion(card, version.versionStr)
     
     configure_notecard(card, appConfig)
 
     updateManager = update.UpdateManager(card, printStatus)
+    updateManager.restart = reset
 
     updateAvailable = False
     updateTimer = 0
@@ -123,7 +125,11 @@ def main():
 
         if updateAvailable:
             printStatus("Update is available")
-            updateManager.migrateAndInstall(restart=False)
+            try:
+                updateManager.migrateAndInstall(restart=False)
+            finally:
+                updateAvailable = False
+            
 
         if isExpiredMS(updateTimer):
             printStatus("Checking for update")

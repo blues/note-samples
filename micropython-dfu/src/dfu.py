@@ -1,13 +1,10 @@
 from time import time, sleep
 import binascii
-import sys
-if sys.implementation.name == 'cpython': # type: ignore
-    import hashlib
-else :
-    import hashlibextras as hashlib # type: ignore
+import hashlib
 
 class dfuReader:
     OpenTimeoutSec = 120
+    DFUModeResetPeriodSec = 240
 
     _getTimeSec = time
     _sleep = sleep
@@ -15,7 +12,8 @@ class dfuReader:
     _offset = 0
     _length = 0
     _imageHash = None
-    _md5 = hashlib.md5() # type: ignore
+    _md5 = hashlib.md5()
+    _dfuModeResetExpiry = 0
 
     def __init__(self, card):
         self.NCard = card
@@ -27,12 +25,15 @@ class dfuReader:
             self._requestDfuModeExit()
             raise(Exception("Notecard failed to enter DFU mode"))
 
+        self._dfuModeResetExpiry = self._getTimeSec() + self.DFUModeResetPeriodSec
+
+
         info = self.GetInfo()
-        self._length = info["length"] # type: ignore
-        self._imageHash = info.get("md5",None) # type: ignore
+        self._length = info["length"]
+        self._imageHash = info.get("md5",None)
 
 
-        self._md5 = hashlib.md5() # type: ignore
+        self._md5 = hashlib.md5()
 
         self.seek(0)
 
@@ -51,6 +52,10 @@ class dfuReader:
 
     def read(self, size=4096, num_retries=5):
 
+        if self._getTimeSec() > self._dfuModeResetExpiry:
+            self._requestDfuModeEntry()
+            self._dfuModeResetExpiry = self._getTimeSec() + self.DFUModeResetPeriodSec
+
         if self._offset + size > self._length:
             size = self._length - self._offset
         
@@ -63,7 +68,6 @@ class dfuReader:
             requestException = None
             try:
                 c = self._requestDfuChunk(self._offset, size)
-                break
             except Exception as e:
                 requestException = e
 
@@ -89,7 +93,7 @@ class dfuReader:
         return getUpdateInfo(self.NCard)
 
     def reset_hash(self):
-        self._md5 = hashlib.md5() # type: ignore
+        self._md5 = hashlib.md5()
 
     def get_hash(self):
         return self._md5.hexdigest()
@@ -117,7 +121,7 @@ class dfuReader:
             r = self.NCard.Transaction({"req":"dfu.get"})
             if "err" not in r:
                 return True
-            self._sleep(DFU_MODE_QUERY_RETRY_SEC) # type: ignore
+            self._sleep(DFU_MODE_QUERY_RETRY_SEC)
 
         return False
 
@@ -136,7 +140,7 @@ class dfuReader:
         content = binascii.a2b_base64(rsp["payload"])
 
         expectedMD5 = rsp["status"]
-        md5 = hashlib.md5(content).hexdigest() # type: ignore
+        md5 = hashlib.md5(content).hexdigest()
         if md5 != expectedMD5:
             raise Exception ("content checksum mismatch")
 
