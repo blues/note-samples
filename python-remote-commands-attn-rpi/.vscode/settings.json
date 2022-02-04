@@ -1,8 +1,0 @@
-{
-    "python.testing.pytestArgs": [
-        ".",
-        "-k", "not  test_e2e_"
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
-}
