@@ -37,7 +37,7 @@ class UpdateManager():
             self._dfu.setUpdateDone(self._card, 'migrated and extracted update')
             
         except Exception as e:
-            self._statusUpdater(f"failed to {stage}")
+            self._statusUpdater(f"failed to {stage}, error: {str(e)}")
             self._dfu.setUpdateError(self._card, f"failed to {stage}")
             return
 
@@ -72,7 +72,6 @@ class UpdateManager():
             return ""
 
         self._statusUpdater("Successful copy of update",None)
-        self._dfu.setUpdateDone(self._card, 'copied image to file')
 
         return filename
 

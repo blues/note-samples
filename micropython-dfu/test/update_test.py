@@ -162,7 +162,6 @@ class UpdateManagerTest(unittest.TestCase):
 
         s.assert_any_call("Successful copy of update", None)
 
-        m._dfu.setUpdateDone.assert_called_once_with(card, 'copied image to file')
 
         self.assertEqual(f, fileName)
 

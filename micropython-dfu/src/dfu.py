@@ -1,6 +1,11 @@
 from time import time, sleep
 import binascii
-import hashlib
+import sys
+if sys.implementation.name == 'cpython': # type: ignore
+    import hashlib
+else :
+    import hashlibextras as hashlib # type: ignore
+
 
 class dfuReader:
     OpenTimeoutSec = 120
@@ -68,6 +73,7 @@ class dfuReader:
             requestException = None
             try:
                 c = self._requestDfuChunk(self._offset, size)
+                break
             except Exception as e:
                 requestException = e
 
