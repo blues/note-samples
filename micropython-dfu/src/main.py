@@ -1,6 +1,5 @@
 
 
-from usys import implementation
 import notecard
 import config
 import update
@@ -25,6 +24,8 @@ if sys.implementation.name == 'micropython':
     from machine import Pin
     from machine import reset
 
+    def getTimeMS():
+        return time.ticks_ms()
     
     def connect_notecard(appConfig):
         """Connect to Notcard and run a transaction test."""
@@ -54,7 +55,14 @@ if sys.implementation.name == 'micropython':
 
 
 elif sys.implementation.name == 'cpython':
+
+    def getTimeMS():
+        return time.time_ns() // 1E6
+
+
     import serial
+    import os
+    
 
     uartPortName = "COM4"
     def connect_notecard(appConfig):
@@ -86,7 +94,9 @@ elif sys.implementation.name == 'cpython':
         return card
 
     def reset():
-        pass
+        mainName = __file__
+        print(f"Restarting program{mainName}")
+        os.execv(sys.executable, [f'python {mainName}'] + sys.argv[1:])
 
 else:
     raise Exception("Please run this example in a MicroPython or CPython environment.")
@@ -117,6 +127,8 @@ def configure_notecard(card, appConfig):
     req["product"] = appConfig.ProductUID
     req["mode"] = "continuous"
     req["host"] = appConfig.HubHost
+    req["sync"] = True
+    req["inbound"] = 1
 
     try:
         card.Transaction(req)
@@ -136,10 +148,10 @@ def printStatus(message, percentComplete=None):
 
 
 def isExpiredMS(timer):
-    return time.ticks_ms() > timer
+    return getTimeMS() > timer
 
 def setTimerMS(periodMS):
-    return time.ticks_ms() + periodMS
+    return getTimeMS() + periodMS
 
 def main():
 
@@ -165,7 +177,7 @@ def main():
         if updateAvailable:
             printStatus("Update is available")
             try:
-                updateManager.migrateAndInstall(restart=False)
+                updateManager.migrateAndInstall(restart=True)
             finally:
                 updateAvailable = False
             

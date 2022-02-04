@@ -19,3 +19,5 @@ Copy-Item -Path $SourceFolder/secrets.json -Destination $DestinationFolder
 Set-Location -Path $PSScriptRoot/../..
 
 wsl . generateTarFile.sh
+
+Set-Location -Path $PSScriptRoot/$DestinationFolder
