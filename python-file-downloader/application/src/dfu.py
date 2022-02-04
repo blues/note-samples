@@ -163,12 +163,18 @@ DFU_MODE_QUERY_RETRY_SEC = 2.5
 def isUpdateAvailable(card):
     r = _cardTransactionFailsOnNotecardErrorMessage(card, {"req":"dfu.status"})
 
+    if "mode" not in r:
+        return False
+
     isAvailable = r["mode"] == "ready"
     return isAvailable
 
 def getUpdateInfo(card):
 
     r = _cardTransactionFailsOnNotecardErrorMessage(card,{"req":"dfu.status"})
+
+    if "mode" not in r:
+        return None
 
     if r["mode"] != "ready":
         return None
