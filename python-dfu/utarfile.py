@@ -1,6 +1,65 @@
 BLOCK_LENGTH_BYTES = 512
 HEADER_LENGTH_BYTES = BLOCK_LENGTH_BYTES
 
+import os
+
+
+
+def extractAll(f, rootFolder = ""):
+    t = TarExtractor(fileName=f, rootFolder=rootFolder)
+
+    while t.extractNext():
+        pass
+
+class TarExtractor:
+        
+    def __init__(self, fileName="", rootFolder="") -> None:
+        self.FileName = fileName
+        self.RootFolder = rootFolder
+        self._mkdir = os.mkdir
+
+        
+
+        self._tarFile = TarFile(self.FileName) if self.FileName != "" else None
+
+    def extractNext(self) -> bool:
+
+        if self._tarFile is None:
+            raise(Exception("TAR file not defined"))
+
+        hasMore = True
+        isDone = False
+        try:
+            i = next(self._tarFile)
+        except StopIteration:
+            return isDone
+
+        if i.Type is Type.DIR:
+            self._writeTarItemAsDir(i)
+            return hasMore
+        
+        self._writeTarItemAsFile(i)
+        return hasMore
+
+    def openFile(self, fileName) -> None:
+        self.FileName = fileName
+        self._tarFile = TarFile(self.FileName)
+        
+
+    def _writeTarItemAsFile(self, item):
+        n = item.Name if self.RootFolder == "" else self.RootFolder + "/" + item.Name
+        with open(n, "wb") as f: # type: ignore
+            buf = bytearray(BLOCK_LENGTH_BYTES)
+            for b in item.Blocks:
+                numBytes = b.readinto(buf)
+                f.write(buf[0:numBytes])
+                
+    def _writeTarItemAsDir(self,item):
+        n = item.Name if self.RootFolder == "" else self.RootFolder + "/" + item.Name
+        self._mkdir(n)
+
+
+
 class TarFile:
     
     def __init__(self, f):
@@ -142,7 +201,7 @@ getHeaderContentFromBuffer = lambda x: {"name":"name", "size":0}
 
 import sys
 use_micropython = sys.implementation.name == 'micropython' # type: ignore
-if use_micropython:
+if use_micropython: # pragma: no cover
     import uctypes
     TAR_HEADER = {
             "name": (uctypes.ARRAY | 0,   uctypes.UINT8 | 100),

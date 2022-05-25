@@ -1,0 +1,1 @@
+pytest --cov=. --cov-report html --cov-config=.coveragec --cov-branch

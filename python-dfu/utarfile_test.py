@@ -6,7 +6,7 @@ import sys
 sys.path.append("..")
 
 
-import src.utarfile as utar
+import utarfile as utar
 
 import io
 
@@ -82,7 +82,7 @@ class TarfileTest(unittest.TestCase):
 
     def test_tarfile_next_get_first_item(self):
         content = b'hello world'
-        f = io.BytesIO(generateTarItem("item1", content))
+        f = io.BytesIO(generateTarItemBin("item1", content))
 
         t = utar.TarFile(f)
         i = next(t)
@@ -97,7 +97,7 @@ class TarfileTest(unittest.TestCase):
         name2 = 'item2'
         content2 = b'qrst'
 
-        f = io.BytesIO(generateTarItem(name1, content1) + generateTarItem(name2, content2))
+        f = io.BytesIO(generateTarItemBin(name1, content1) + generateTarItemBin(name2, content2))
 
         t = utar.TarFile(f)
         i1 = next(t)
@@ -109,7 +109,7 @@ class TarfileTest(unittest.TestCase):
 
     def test_tarfile_next_throws_stop_iteration_exception_when_header_is_empty(self):
 
-        f = io.BytesIO(generateTarItem())
+        f = io.BytesIO(generateTarItemBin())
 
         t = utar.TarFile(f)
 
@@ -120,7 +120,7 @@ class TarfileTest(unittest.TestCase):
     def test_tarfile_iterable_in_for_loop_works_as_expected(self):
         name = 'item'
         content = b'abce'
-        tarBytes = generateTarItem(name, content) + generateTarItem(name, content) + generateTarItem()
+        tarBytes = generateTarItemBin(name, content) + generateTarItemBin(name, content) + generateTarItemBin()
         f = io.BytesIO(tarBytes)
         t = utar.TarFile(f)
 
@@ -132,7 +132,7 @@ class TarfileTest(unittest.TestCase):
         self.assertEqual(itemCount, 2)
 
     def test_tarfile_iter_returns_iterable_and_resets_current_item_to_none(self):
-        f = io.BytesIO(generateTarItem())
+        f = io.BytesIO(generateTarItemBin())
         t = utar.TarFile(f)
         t._current_item = utar.TarItem(f, 'name', utar.Type.FILE, 7, 0)
         self.assertIsNotNone(t._current_item)
@@ -445,6 +445,193 @@ class TestTarBlockIter(unittest.TestCase):
         self.assertEqual(buf[0:s], content)
 
 
+class TarExtractorTest(unittest.TestCase):
+    def test_tarextractor_constructor_sets_default_properties(self):
+        e = utar.TarExtractor()
+
+        self.assertEqual(e.FileName, "")
+
+
+    @patch("builtins.open", new_callable=mock_open)
+    def test__writeTarItemToFile_multipleTarItemBlocks(self, mockOpen):
+        e = utar.TarExtractor()
+
+        data = bytearray([1] * (utar.BLOCK_LENGTH_BYTES + 1))
+        item = generateTarItem(name = "myfile", content = data)
+        
+
+        e._writeTarItemAsFile(item)
+
+        mockOpen.assert_called_once_with("myfile", "wb")
+        mockWrite = mockOpen.return_value.__enter__().write
+        mockWrite.assert_any_call(data[0:utar.BLOCK_LENGTH_BYTES])
+        mockWrite.assert_any_call(data[utar.BLOCK_LENGTH_BYTES:])
+
+    @patch("builtins.open", new_callable=mock_open)
+    def test__writeTarItemToFile_userSetRootFolder_fileOpenedInRootFolder(self, mockOpen):
+        e = utar.TarExtractor(rootFolder='myrootfolder')
+
+        data = bytearray([1] * (utar.BLOCK_LENGTH_BYTES - 1))
+        item = generateTarItem(name = "myfile", content = data)
+        
+
+        e._writeTarItemAsFile(item)
+
+        mockOpen.assert_called_once_with("myrootfolder/myfile", "wb")
+        
+
+    @patch("os.mkdir")
+    def test__writeTarItemAsDir_calls_os_to_make_directory(self, mockMkDir):
+        e = utar.TarExtractor()
+
+        i = generateTarItem("myItem", b'hello content')
+
+        e._writeTarItemAsDir(i)
+
+        mockMkDir.assert_called_once_with("myItem")
+
+    @patch("os.mkdir")
+    def test__writeTarItemAsDir_userSetRootFolder_mkdirInRootFolder(self, mockMkDir):
+        e = utar.TarExtractor(rootFolder="myrootfolder")
+
+        i = generateTarItem("myItem", b'hello content')
+
+        e._writeTarItemAsDir(i)
+
+        mockMkDir.assert_called_once_with("myrootfolder/myItem")
+
+    @patch("builtins.open", new_callable=mock_open)
+    def test_extractNext_noPreviousItemExtracted_extractsFirstItem(self, mock_open):
+        data = bytearray([1] * (utar.BLOCK_LENGTH_BYTES + 1))
+        item = generateTarItemBin(name = "myfile", content = data)
+        f = io.BytesIO(item)
+
+        t = utar.TarExtractor(fileName=f)
+        # t._writeTarItemAsFile = MagicMock()
+
+        tf = t.extractNext()
+
+        self.assertTrue(tf)
+        mock_open.assert_called_once_with("myfile", "wb")
+
+    @patch("builtins.open", new_callable=mock_open)
+    def test_extractNext_previousItemExtracted_extractsSecondItem(self, mock_open):
+        data = bytearray([1] * (utar.BLOCK_LENGTH_BYTES + 1))
+        item1 = generateTarItemBin(name = "myfile1", content = data)
+        item2 = generateTarItemBin(name = "myfile2", content = data)
+        f = io.BytesIO(item1+item2)
+
+        t = utar.TarExtractor(fileName=f)
+
+        tf = t.extractNext()
+        tf = t.extractNext()
+
+        self.assertTrue(tf)
+        self.assertEqual(mock_open.call_args_list[1][0], ('myfile2', 'wb'))
+        
+        
+    @patch("builtins.open", new_callable=mock_open)
+    def test_extractNext_noMoreItems_returnsFalse(self, mock_open):
+        # check using a single valid block
+        data = bytearray([1] * (utar.BLOCK_LENGTH_BYTES + 1))
+        item = generateTarItemBin(name = "myfile", content = data)
+        emptyBlock = generateTarItemBin()
+        f = io.BytesIO(item + emptyBlock)
+
+        t = utar.TarExtractor(fileName=f)
+        
+        t.extractNext()
+        tf = t.extractNext()
+
+        self.assertFalse(tf)
+
+        # check using no valid blocks
+        f = io.BytesIO(emptyBlock)
+
+        t = utar.TarExtractor(fileName=f)
+        
+        tf = t.extractNext()
+
+        self.assertFalse(tf)
+        
+    def test_extractNext_writesDirForDirItem(self):
+        
+        item1 = generateTarItemBin(name = "mydir1/")
+
+        f = io.BytesIO(item1)
+
+        t = utar.TarExtractor(fileName=f)
+        t._mkdir = MagicMock()
+        tf = t.extractNext()
+
+        self.assertTrue(tf)
+        t._mkdir.assert_called_once_with("mydir1/")
+
+    def test_extractNext_throws_exception_tarfile_not_defined(self):
+
+
+
+        t = utar.TarExtractor()
+
+        with self.assertRaisesRegex(Exception, "TAR file not defined"):
+            t.extractNext()
+            
+    
+    @patch("builtins.open", new_callable=mock_open)
+    def test_openFile_validFileName_opensTarFile(self, mock_open):
+        t = utar.TarExtractor()
+        self.assertIsNone(t._tarFile)
+
+        t.openFile("myfile.tar")
+
+        self.assertIsInstance(t._tarFile, utar.TarFile)
+        mock_open.assert_called_once_with("myfile.tar", "rb")
+
+
+
+class ExtractAllTest(unittest.TestCase):
+    @patch("os.mkdir")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_extractAll_generatesFileOrDirForEachItem(self, mockOpen, mockMkdir):
+        
+        item1 = generateTarItemBin(name = "mydir1/")
+        item2 = generateTarItemBin(name = "myfile2", content = b'content 2')
+        item3 = generateTarItemBin(name = "myfile3", content = b'content 3')
+        emptyBlock = generateTarItemBin()
+
+        f = io.BytesIO(item1 + item2 + item3 + emptyBlock)
+
+        utar.extractAll(f)
+
+        self.assertEqual(mockMkdir.call_args[0][0], "mydir1/")
+
+        args = mockOpen.call_args_list
+        firstCallArg = args[0][0][0]
+        secondCallArg = args[1][0][0]
+        
+        self.assertEqual(firstCallArg, "myfile2")
+        self.assertEqual(secondCallArg, "myfile3")
+
+    @patch("os.mkdir")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_extractAll_setUserRootFolder_itemsCreatedInRootFolder(self, mockOpen, mockMkdir):
+        
+        item1 = generateTarItemBin(name = "mydir1/")
+        item2 = generateTarItemBin(name = "myfile2", content = b'content 2')
+        emptyBlock = generateTarItemBin()
+
+        f = io.BytesIO(item1 + item2 + emptyBlock)
+
+        utar.extractAll(f, rootFolder="myrootfolder")
+
+        self.assertEqual(mockMkdir.call_args[0][0], "myrootfolder/mydir1/")
+
+        args = mockOpen.call_args_list
+        firstCallArg = args[0][0][0]
+        
+        
+        self.assertEqual(firstCallArg, "myrootfolder/myfile2")
+        
 
 
 if __name__ == '__main__':
@@ -463,12 +650,20 @@ def generateTarHeader(name="", length=0):
 
     return buf
 
-def generateTarItem(name="", content=b''):
+def generateTarItemBin(name="", content=b''):
     length = len(content)
     s = utar.BLOCK_LENGTH_BYTES
     bufferLength =  s * (length//s + int((length % s) > 0))
     buf = bytearray(bufferLength)
     buf[0:length] = content
-    return generateTarHeader(name, length) + buf
+    header = generateTarHeader(name, length)
+    return header + buf
 
 
+def generateTarItem(name="", content=b''):
+    bin = generateTarItemBin(name=name, content = content)
+    
+    f = io.BytesIO(bin)
+    type = utar.Type.DIR if name[-1] == '/' else utar.Type.FILE
+    i = utar.TarItem(f, name, type, len(content), utar.HEADER_LENGTH_BYTES)
+    return i
