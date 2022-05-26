@@ -37,6 +37,9 @@ def test_Updater_constructor_set_properties():
     u = Updater(restartFcn = r)
     assert u.RestartFcn == r
 
+    r = MagicMock()
+    u = Updater(statusReporter = r)
+    assert u._statusReporter == r
 
 def test_transition_to_none_to_state_from_argument():
     u = Updater()
@@ -102,6 +105,23 @@ def test_transition_to_calls_enter_after_applying_new_state_context():
     u = Updater(initialState=None)
 
     u.transition_to(TestState())
+
+    
+def test_transition_to_calls_statusReporter_on_stateChange():
+    
+    d = "my description"
+    class TestState(DFUState):
+        Description = d
+        def execute(self) -> None:
+            pass
+
+    r = MagicMock()
+    u = Updater(initialState=None, statusReporter = r)
+
+    u.transition_to(TestState())
+
+    r.assert_called_once_with(d)
+
 
 
 def test_execute_state_is_none_throws_no_exceptions():
@@ -445,7 +465,7 @@ def test_Install_execute_transitionsTo_Restart():
     s = Install()
     u = Updater(initialState=s)
     s.execute()
-    
+
     assert isinstance(u._state, Restart)
 
 

@@ -11,15 +11,19 @@ DEFAULT_DFU_MODE_ENTRY_TIMEOUT_SECS = 120
 def _defaultRestartFunction()->None:
     raise NotImplementedError
 
+def _defaultStatusReporter(message=None, percentComplete=None)->None:
+    pass
+
 class Updater:
     _state = None
     _dfuReader = None
-    def __init__(self, dfuReader = None, initialState = None, getTimeMS = lambda :0, fileOpener=None, fileCloser=None, restartFcn=_defaultRestartFunction) -> None:
+    def __init__(self, dfuReader = None, initialState = None, getTimeMS = lambda :0, fileOpener=None, fileCloser=None, restartFcn=_defaultRestartFunction, statusReporter = _defaultStatusReporter) -> None:
         
         self._dfuReader = dfuReader
         self._getTimeMS = getTimeMS
         self._fileOpener = fileOpener
         self._fileCloser = fileCloser
+        self._statusReporter  = statusReporter
         self.RestartFcn = restartFcn
 
         self.SourceName = None
@@ -37,6 +41,7 @@ class Updater:
             return
 
         self._state._context = self
+        self._statusReporter(self._state.Description)
         self._state.enter()
 
     def execute(self) -> None:
@@ -47,6 +52,7 @@ class Updater:
 
 
 class DFUState(ABC):
+    Description = ""
     @property
     def context(self) -> Updater:
         return self._context
@@ -70,13 +76,14 @@ class DFUError(DFUState):
 
     def __init__(self, message="") -> None:
         self.message = message
+        self.Description = "Error: " + message
 
     def execute(self) -> None:
         pass
 
 
 class GetDFUInfo(DFUState):
-
+    Description = "get update info"
     def execute(self) -> None:
         info = self._context._dfuReader.GetInfo()
 
@@ -97,7 +104,7 @@ class ExitDFUMode(DFUState):
 
 
 class WaitForDFUMode(DFUState):
-
+    Description = "wait to enable update"
     def __init__(self, timeoutPeriodSecs=DEFAULT_DFU_MODE_ENTRY_TIMEOUT_SECS) -> None:
         self.TimeoutPeriodSecs = timeoutPeriodSecs
         self._timeoutExpiry = 0
@@ -122,7 +129,7 @@ class WaitForDFUMode(DFUState):
 class MigrateBytesToFile(DFUState):
     _numBytesWritten = 0
     _length = 0
-
+    Description = "migrate update"
     def enter(self) -> None:
         self._numBytesWritten = 0
         self._length = self._context.SourceLength
@@ -159,7 +166,7 @@ class MigrateBytesToFile(DFUState):
 
 
 class UntarFile(DFUState):
-
+    Description = "extract update files"
     _extractor = TarExtractor()
     def enter(self)-> None:
         self._extractor.openFile(self._context.SourceName)
@@ -177,13 +184,13 @@ class UntarFile(DFUState):
         self._context.transition_to(Install())
 
 class Install(DFUState):
-    
+    Description = "install update"
     def execute(self)->None:
         self._context.transition_to(Restart())
 
 
 class Restart(DFUState):
-    
+    Description = "system restart "
     def execute(self)->None:
         self._context.RestartFcn()
 
