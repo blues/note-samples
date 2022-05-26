@@ -2,7 +2,7 @@ from logging.handlers import DEFAULT_UDP_LOGGING_PORT
 from multiprocessing import context
 from unittest.mock import patch, mock_open, MagicMock
 
-from updater import Updater, DFUState, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, DFUError
+from updater import Updater, DFUState, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, Install, Restart, DFUError
 
 
 def test_Updater_constructor_set_properties():
@@ -32,6 +32,10 @@ def test_Updater_constructor_set_properties():
     u = Updater()
     assert u.SourceName == None
     assert u.SourceLength == 0
+
+    r = MagicMock()
+    u = Updater(restartFcn = r)
+    assert u.RestartFcn == r
 
 
 def test_transition_to_none_to_state_from_argument():
@@ -362,7 +366,7 @@ def test_ExitDFUMode_execute_callsDfuModeExitRequest():
     d._requestDfuModeExit.assert_called_once()
 
 
-def test_ExitDFUMode_execute_transitionsToUntarFile():
+def test_ExitDFUMode_execute_transitionsTo_UntarFile():
     s = ExitDFUMode()
     d = MagicMock()
     u = Updater(dfuReader=d, initialState=s)
@@ -375,3 +379,87 @@ def test_ExitDFUMode_execute_transitionsToUntarFile():
 def test_UntarFile_isa_DFUState_class():
     s = UntarFile()
     assert isinstance(s, DFUState)
+
+
+
+def test_UntarFile_enter_establishesTarfileExtractor():
+    s = UntarFile()
+    s._extractor = MagicMock()
+    u = Updater()
+    u.SourceName = 'myfile.tar'
+    u.transition_to(s)
+
+    s._extractor.openFile.assert_called_once_with('myfile.tar')
+
+def test_UntarFile_execute_untarsNextItem():
+    s = UntarFile()
+    e = MagicMock()
+    s._extractor = e
+
+    e.extractNext.return_value = True
+
+    s.execute()
+
+    e.extractNext.assert_called_once()
+
+def test_UntarFile_execute_noMoreItemsToExtract_transitionsTo_Install():
+    s = UntarFile()
+    e = MagicMock()
+    s._extractor = e
+
+    e.extractNext.return_value = False
+
+    u = Updater(initialState=s)
+
+    s.execute()
+
+    assert isinstance(u._state, Install)
+
+def test_UntarFile_execute_errors_transitionTo_ErrorState():
+    s = UntarFile()
+
+    def extractNextSideEffect():
+        raise(Exception("execution error"))
+
+    e = MagicMock()
+    s._extractor = e
+
+    e.extractNext.side_effect = extractNextSideEffect
+
+    u = Updater(initialState=s)
+
+    s.execute()
+
+    assert isinstance(u._state, DFUError)
+    
+
+
+
+
+def test_Install_isa_DFUState_class():
+    s = Install()
+    assert isinstance(s, DFUState)
+
+
+def test_Install_execute_transitionsTo_Restart():
+    s = Install()
+    u = Updater(initialState=s)
+    s.execute()
+    
+    assert isinstance(u._state, Restart)
+
+
+
+def test_Restart_isa_DFUState_class():
+    s = Restart()
+    assert isinstance(s, DFUState)
+
+def test_Restart_execute_calls_statemachine_restart_function():
+    s = Restart()
+    r = MagicMock()
+    u = Updater(initialState=s, restartFcn = r)
+
+    s.execute()
+
+    r.assert_called_once()
+    

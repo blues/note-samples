@@ -3,20 +3,24 @@
 ##from __future__ import annotations
 from abc import ABC, abstractmethod
 from mimetypes import init
+from utarfile import TarExtractor
 
 DEFAULT_DFU_MODE_ENTRY_TIMEOUT_SECS = 120
 
 
+def _defaultRestartFunction()->None:
+    raise NotImplementedError
+
 class Updater:
     _state = None
     _dfuReader = None
-
-    def __init__(self, dfuReader=None, initialState=None, getTimeMS=lambda: 0, fileOpener=None, fileCloser=None) -> None:
-
+    def __init__(self, dfuReader = None, initialState = None, getTimeMS = lambda :0, fileOpener=None, fileCloser=None, restartFcn=_defaultRestartFunction) -> None:
+        
         self._dfuReader = dfuReader
         self._getTimeMS = getTimeMS
         self._fileOpener = fileOpener
         self._fileCloser = fileCloser
+        self.RestartFcn = restartFcn
 
         self.SourceName = None
         self.SourceLength = 0
@@ -156,5 +160,31 @@ class MigrateBytesToFile(DFUState):
 
 class UntarFile(DFUState):
 
+    _extractor = TarExtractor()
+    def enter(self)-> None:
+        self._extractor.openFile(self._context.SourceName)
+
     def execute(self) -> None:
-        pass
+        try:
+            hasMore = self._extractor.extractNext()
+        except:
+            self._context.transition_to(DFUError(message="TAR extraction failed"))
+            return
+
+        if hasMore:
+            return
+
+        self._context.transition_to(Install())
+
+class Install(DFUState):
+    
+    def execute(self)->None:
+        self._context.transition_to(Restart())
+
+
+class Restart(DFUState):
+    
+    def execute(self)->None:
+        self._context.RestartFcn()
+
+
