@@ -125,7 +125,7 @@ def test_dfuReader():
 
     assert(d.NCard == nCard)
     assert(d.OpenTimeoutSec == 120)
-    assert d.DFUModeResetPeriodSec == 240
+    
 
 
 def test_dfuReader_privateProperties():
@@ -269,21 +269,7 @@ def test_dfuReader_Open_setsReaderLengthProp():
 
     assert d._length == length
 
-
-def test_dfuReader_Open_setsDFUModeResetExpiry():
-    d = createReaderWithMockNotecard()
-    d._requestDfuModeEntry = Mock()
-    d._waitForDfuMode = Mock(return_value=True)
-    d.GetInfo = Mock(return_value={"length": 0})
-
-    assert d._dfuModeResetExpiry == 0
-
-    d._getTimeSec = lambda: 17
-
-    d.Open()
-
-    assert d._dfuModeResetExpiry == 17 + d.DFUModeResetPeriodSec
-
+           
 
 def test_dfuReader_requestDfuModeExit_callsNotecard():
     d, port = createReaderAndPort()
@@ -515,22 +501,11 @@ def test_dfuReader_Read_chunkReadFails_RaisesException():
     assert nc.Transaction.call_count == num_retries
 
 
-def test_dfuReader_Read_RequestsDFUModeAfterExpiryPeriod_AndUpdatesExpiry():
-    d = createReaderWithMockNotecard()
-    d._requestDfuModeEntry = Mock()
-    d._requestDfuChunk = Mock(return_value=b"abcd")
-    currentTimeSec = 3
-    d._getTimeSec = lambda: currentTimeSec
-    d._dfuModeResetExpiry = 0
-
-    d.read()
-
-    d._requestDfuModeEntry.assert_called_once()
-    assert d._dfuModeResetExpiry == currentTimeSec + d.DFUModeResetPeriodSec
 
 
 def test_dfuReader_Read_DoesNotRequestDFUModeBeforeExpiryPeriod():
     d = createReaderWithMockNotecard()
+    assert hasattr(d, "_requestDfuModeEntry")
     d._requestDfuModeEntry = Mock()
     d._requestDfuChunk = Mock(return_value=b"abcd")
     d._getTimeSec = lambda: 0

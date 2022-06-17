@@ -225,18 +225,6 @@ def test_WaitForDFUMode_execute_callsDfuModeStatusRequest_ifNotTimedOut():
     d._requestDfuModeStatus.assert_called_once()
 
 
-def test_WaitForDFUMode_execute_callsDfuModeStatusRequest_ifTimeoutExpiryNotSetYet():
-    w = WaitForDFUMode()
-    initialExpiry = w._timeoutExpiry
-    def getExpiredTime(): return initialExpiry + 1
-
-    d = MagicMock()
-    u = Updater(dfuReader=d, initialState=w, getTimeMS=getExpiredTime)
-
-    w.execute()
-    assert w._timeoutExpiry == initialExpiry + 1 + w.TimeoutPeriodSecs
-    d._requestDfuModeStatus.assert_called_once()
-
 
 def test_WaitForDFUMode_execute_transitionsToMigrateBytes_ifInDFUMode():
     w = WaitForDFUMode()
@@ -316,7 +304,7 @@ def test_MigrateBytesToFile_callsFileOpenerOnStateEntry_callsFileCloserOnStateEx
 
     m.enter()
 
-    o.assert_called_once_with(sourceName)
+    o.assert_called_once_with(sourceName, 'wb')
 
     m.exit()
 
