@@ -17,6 +17,7 @@ def _defaultStatusReporter(message=None, percentComplete=None)->None:
 class Updater:
     _state = None
     _dfuReader = None
+    _inProgress = False
     def __init__(self, dfuReader = None, initialState = None, getTimeMS = lambda :0, fileOpener=None, fileCloser=None, restartFcn=_defaultRestartFunction, statusReporter = _defaultStatusReporter) -> None:
         
         self._dfuReader = dfuReader
@@ -50,6 +51,15 @@ class Updater:
 
         self._state.execute()
 
+    def start(self) -> None:
+        self.transition_to(CheckForUpdate())
+
+    @property
+    def InProgress(self) -> bool:
+        return self._inProgress
+
+        
+
 
 class DFUState(ABC):
     Description = ""
@@ -78,9 +88,19 @@ class DFUError(DFUState):
         self.message = message
         self.Description = "Error: " + message
 
+    def enter(self) -> None:
+        self._context._inProgress = False
+        
     def execute(self) -> None:
         pass
 
+
+class CheckForUpdate(DFUState):
+    Description = "check for updates"
+    def execute(self) -> None:
+        isAvailable = self._context._dfuReader.IsUpdateAvailable()
+        if isAvailable:
+            self._context.transition_to(GetDFUInfo())
 
 class GetDFUInfo(DFUState):
     Description = "get update info"
@@ -89,6 +109,8 @@ class GetDFUInfo(DFUState):
 
         self._context.SourceName = info["source"]
         self._context.SourceLength = info["length"]
+
+        self._context.transition_to(EnterDFUMode())
 
 
 class EnterDFUMode(DFUState):
@@ -112,7 +134,7 @@ class WaitForDFUMode(DFUState):
     def execute(self) -> None:
 
         if self._timeoutExpiry == 0:
-            self._timeoutExpiry = self._context._getTimeMS() + self.TimeoutPeriodSecs
+            self._timeoutExpiry = self._context._getTimeMS() + self.TimeoutPeriodSecs*1000
 
         elif self._context._getTimeMS() > self._timeoutExpiry:
             self._context.transition_to(
@@ -134,18 +156,20 @@ class MigrateBytesToFile(DFUState):
         self._numBytesWritten = 0
         self._length = self._context.SourceLength
         self._context._dfuReader.seek(0)
+        self.context._dfuReader._length = self._length
 
         if self._context._fileOpener is None:
             return
 
-        self._filePointer = self._context._fileOpener(self._context.SourceName)
+        self._filePointer = self._context._fileOpener(self._context.SourceName, 'wb')
 
     def exit(self) -> None:
 
-        if self._context._fileCloser is None:
-            return
+        # if self._context._fileCloser is None:
+        #     return
 
-        self._context._fileCloser(self._filePointer)
+        #self._context._fileCloser(self._filePointer)
+        self._filePointer.close()
 
     def execute(self) -> None:
 
@@ -192,6 +216,7 @@ class Install(DFUState):
 class Restart(DFUState):
     Description = "system restart "
     def execute(self)->None:
+        self._context._inProgress = False
         self._context.RestartFcn()
 
 

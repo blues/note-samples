@@ -1,8 +1,9 @@
 from logging.handlers import DEFAULT_UDP_LOGGING_PORT
 from multiprocessing import context
+from turtle import up
 from unittest.mock import patch, mock_open, MagicMock
 
-from updater import Updater, DFUState, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, Install, Restart, DFUError
+from updater import Updater, DFUState, CheckForUpdate, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, Install, Restart, DFUError
 
 
 def test_Updater_constructor_set_properties():
@@ -40,6 +41,10 @@ def test_Updater_constructor_set_properties():
     r = MagicMock()
     u = Updater(statusReporter = r)
     assert u._statusReporter == r
+
+    u = Updater()
+    assert u.InProgress == False
+
 
 def test_transition_to_none_to_state_from_argument():
     u = Updater()
@@ -136,6 +141,48 @@ def test_execute_state_execute_method_is_called_once():
     u.execute()
 
     s.execute.assert_called_once()
+
+def test_start_transitions_to_CheckForUpdate():
+    u = Updater()
+    u.start()
+    assert isinstance(u._state, CheckForUpdate)
+
+def test_CheckForUpdate_is_a_DFUState_class():
+    s = CheckForUpdate()
+    assert isinstance(s, DFUState)
+
+def test_CheckForUpdate_execute_callsDFUReader_IsUpdateAvailable():
+    s = CheckForUpdate()
+    r = MagicMock()
+    r.IsUpdateAvailable.return_value = False
+
+    u = Updater(dfuReader=r, initialState=s)
+
+    s.execute()
+
+    r.IsUpdateAvailable.assert_called_once()
+
+def test_CheckForUpdate_execute_noUpdate_doesNotTransitionStates():
+    s = CheckForUpdate()
+    r = MagicMock()
+    r.IsUpdateAvailable.return_value = False
+
+    u = Updater(dfuReader=r, initialState=s)
+
+    s.execute()
+
+    assert u._state == s
+
+def test_CheckForUpdate_execute_hasUpdate_transitionsToGetInfo():
+    s = CheckForUpdate()
+    r = MagicMock()
+    r.IsUpdateAvailable.return_value = True
+
+    u = Updater(dfuReader=r, initialState=s)
+
+    s.execute()
+
+    assert isinstance(u._state, GetDFUInfo)
 
 
 def test_EnterDFUMode_is_a_DFUState_class():
@@ -351,6 +398,16 @@ def test_DFUError_constructor_sets_properties():
     e = DFUError(m)
     assert e.message == m
 
+def test_DFUError_enter_sets_updater_InProgress_to_False():
+    s = DFUError()
+    u = Updater(initialState=s)
+    u._inProgress = True
+
+    s.enter()
+
+    assert u.InProgress == False
+
+
 
 def test_GetDFUInfo_isa_DFUState_class():
     i = GetDFUInfo()
@@ -370,6 +427,17 @@ def test_GetDFUInfo_execute_requestsAndStoresDFUInfo():
     assert u.SourceName == sourceName
     assert u.SourceLength == length
 
+def test_GetDFUInfo_execute_transitions_to_EnterDFUMode():
+    r = MagicMock()
+    r.GetInfo.return_value = {"source":"filename","length":7}
+    s = GetDFUInfo()
+    u = Updater(dfuReader=r, initialState=s)
+
+    s.execute()
+
+    assert isinstance(u._state, EnterDFUMode)
+
+    
 
 def test_ExitDFUMode_isa_DFUState_class():
     e = ExitDFUMode()
@@ -482,4 +550,14 @@ def test_Restart_execute_calls_statemachine_restart_function():
     s.execute()
 
     r.assert_called_once()
+
+def test_Restart_execute_setsUpdaterInprogressToFalse():
+    s = Restart()
+    r = MagicMock()
+    u = Updater(initialState=s, restartFcn = r)
+    u._inProgress = True
+
+    s.execute()
+
+    assert u.InProgress == False
     

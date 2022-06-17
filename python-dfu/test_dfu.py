@@ -995,8 +995,58 @@ def test_copyImageToWriter_callsProgressUpdaterWithPercentCompletion():
     dfu.copyImageToWriter(nCard, writer, reader=reader,
                           progressUpdater=progressUpdater)
 
-    progressUpdater.assert_called_with(
-        int((readLength + readLength) * 100 / totalLength))
+    progressUpdater.assert_called_with(int((readLength + readLength) * 100 / totalLength))
+
+
+def test_reader_IsUpdateAvailable_when_file_available():
+    nCard, port = createNotecardAndPort()
+
+    setResponse(port, {
+        "mode":   "ready",
+        "status": "successfully downloaded",
+        })
+
+    reader = dfu.dfuReader(nCard)
+    tf = reader.IsUpdateAvailable()
+
+    assert tf == True
+
+def test_reader_IsUpdateAvailable_when_not_available():
+
+    nCard, port = createNotecardAndPort()
+    reader = dfu.dfuReader(nCard)
+
+    setResponse(port, {"mode":   "idle"})
+
+    tf = reader.IsUpdateAvailable()
+
+    assert tf == False
+
+    setResponse(port, {"mode":   "downloading"})
+
+    tf = reader.IsUpdateAvailable()
+
+    assert tf == False
+
+    setResponse(port, {"mode":   "error"})
+
+    tf = reader.IsUpdateAvailable()
+
+    assert tf == False
+
+def test_reader_IsUpdateAvailable_response_has_error():
+
+    nCard, port = createNotecardAndPort()
+    reader = dfu.dfuReader(nCard)
+
+    message = "something went wrong"
+    setResponse(port, {
+        "err": message
+        })
+
+    with pytest.raises(Exception, match="Notecard returned error: " + message):
+        f = reader.IsUpdateAvailable()
+    
 
 
 def test_setVersion_SendsNotecardRequest():

@@ -1,163 +1,196 @@
-import dfu
+
+
 import notecard
-from timeit import default_timer as timer
-import serial
-import shutil
+import config
+from updater import Updater
+import dfu
+import version
+
+
+"""note-python MicroPython example.
+
+This file contains a complete working sample for using the note-python
+library on a MicroPython device.
+"""
 import sys
-import os
-defaultProductUID = 'com.my.product.uid'
-defaultHost = "a.notefile.net"
-defaultFileDownloadDir = "./download"
-defaultDebugFlag = False
-defaultUseSerialFlag = False
-defaultPortName = "/dev/i2c-1"
-defaultBaudRate = 9600
+import time
 
 
-try:
-    from periphery import I2C  # noqa:E402
-except:
-    pass
+
+    
+if sys.implementation.name == 'micropython':
+    from machine import UART, reset_cause  # noqa: E402
+    from machine import I2C  # noqa: E402
+    from machine import Pin
+    from machine import reset
+
+    def getTimeMS():
+        return time.ticks_ms()
+    
+    def connect_notecard(appConfig):
+        """Connect to Notcard and run a transaction test."""
+        print("Opening port...")
+        use_uart = appConfig.PortType == config.PortType.UART or appConfig.PortType == config.PortType.USB
+        try:
+            if use_uart:
+                uartMethodTimeoutMS = 10000
+                port = UART(appConfig.PortID, appConfig.PortBaudRate, parity=None, stop=1, bits=8, rx=Pin(17), tx=Pin(16), timeout=uartMethodTimeoutMS)
+                
+            else:
+                port = I2C()
+        except Exception as exception:
+            raise Exception("error opening port: "
+                            + NotecardExceptionInfo(exception))
+
+        print("Opening Notecard...")
+        try:
+            if use_uart:
+                card = notecard.OpenSerial(port, debug=appConfig.Debug)
+            else:
+                card = notecard.OpenI2C(port, 0, 0, debug=appConfig.Debug)
+        except Exception as exception:
+            raise Exception("error opening notecard: "
+                            + NotecardExceptionInfo(exception))
+
+        return card
 
 
-appVersion = "1.7.0"
-scriptName = __file__
+elif sys.implementation.name == 'cpython':
+
+    def getTimeMS():
+        return time.time_ns() // 1E6
 
 
-def getUpdate(card, folder=defaultFileDownloadDir, statusWriter=lambda m: None):
+    import serial
+    import os
+    
+    def connect_notecard(appConfig):
+        """Connect to Notcard and run a transaction test."""
+        print("Opening port...")
+        use_uart = appConfig.PortType == config.PortType.UART or appConfig.PortType == config.PortType.USB
 
-    isAvailable = dfu.isUpdateAvailable(card)
-    if not isAvailable:
-        statusWriter("No update available")
-        return None
+        if not use_uart:
+            raise Exception("only supports UART in CPython implementations")
 
-    statusWriter("Update available for install")
+        try:
+            port = serial.Serial(port=appConfig.PortID,
+                                 baudrate=appConfig.PortBaudRate)
+        except Exception as exception:
+            raise Exception("error opening port: "
+                            + NotecardExceptionInfo(exception))
 
-    info = dfu.getUpdateInfo(card)
+        print("Opening Notecard...")
+        try:
+            card = notecard.OpenSerial(port, debug=appConfig.Debug)
+        except Exception as exception:
+            raise Exception("error opening notecard: "
+                            + NotecardExceptionInfo(exception))
 
-    isdir = os.path.isdir(folder)
-    if not isdir:
-        os.makedirs(folder)
-    filename = os.path.join(folder, info["source"])
+        return card
 
-    message = "success"
-    statusWriter("Copy update for installation")
+    def reset():
+        mainName = __file__
+        print(f"Restarting program{mainName}")
+        os.execv(sys.executable, [f'python {mainName}'] + sys.argv[1:])
+
+else:
+    raise Exception("Please run this example in a MicroPython or CPython environment.")
+
+
+def NotecardExceptionInfo(exception):
+    """Construct a formatted Exception string.
+
+    Args:
+        exception (Exception): An exception object.
+
+    Returns:
+        string: a summary of the exception with line number and details.
+    """
+    name = exception.__class__.__name__
+    return sys.platform + ": " + name + ": " \
+        + ' '.join(map(str, exception.args))
+
+
+def configure_notecard(card, appConfig):
+    """Submit a simple JSON-based request to the Notecard.
+
+    Args:
+        card (object): An instance of the Notecard class
+
+    """
+    req = {"req": "hub.set"}
+    req["product"] = appConfig.ProductUID
+    req["mode"] = "continuous"
+    req["host"] = appConfig.HubHost
+    req["sync"] = True
+    req["inbound"] = 1
+
     try:
-        with open(filename, "wb") as f:
-            def p(x): return statusWriter(f"Migration {x}% complete")
-            dfu.copyImageToWriter(card, f, progressUpdater=p)
-    except Exception as e:
-        statusWriter(f"Message: {e}")
-        statusWriter("Failed to copy update")
-        message = "failed to copy image to file"
-        dfu.setUpdateError(card, message)
-        return None
-
-    else:
-        statusWriter("Successfully copy of update")
-        dfu.setUpdateDone(card, message)
-
-    return filename
+        card.Transaction(req)
+    except Exception as exception:
+        print("Transaction error: " + NotecardExceptionInfo(exception))
+        time.sleep(5)
 
 
-def getConnectionStatus(card):
+def printStatus(message, percentComplete=None):
+    if percentComplete is not None:
+        print(f"{message}: {percentComplete}% complete")
+        return
 
-    req = {"req": "hub.status"}
-    rsp = card.Transaction(req)
-
-    if "err" in rsp:
-        return "UNKNOWN"
-
-    return rsp["status"]
-
-
-def displayConnectionStatus(card):
-    s = getConnectionStatus(card)
-    print(f"Connection status: {s}\n")
-
-
-def restartApp(filename):
-    shutil.copyfile(filename, scriptName)
-    print(filename)
-    print("Restarting program...")
-    os.execv(sys.executable, [f'python {scriptName}'] + sys.argv[1:])
-
-
-def start_check_update_loop(card):
-    ten_second_timer = 0
-    timer_interval_secs = 10
-    while True:
-        if timer() > ten_second_timer:
-            try:
-                displayConnectionStatus(card)
-                filename = getUpdate(card, statusWriter=print)
-                if filename:
-                    restartApp(filename)
-
-            except Exception as e:
-                print(e)
-            finally:
-                ten_second_timer = timer() + timer_interval_secs
-
-
-def configureNotecard(card, productUID=defaultProductUID, host=defaultHost):
-
-    dataUplinkPeriodMinutes = 1
-    dataDownlinkPeriodMinutes = 2
-
-    req = {"req": "hub.set",
-           "product": productUID,
-           "host": host,
-           "mode": "continuous",
-           "outbound": dataUplinkPeriodMinutes,
-           "inbound": dataDownlinkPeriodMinutes,
-           "sync": True,
-           "align": True
-           }
-
-    rsp = card.Transaction(req)
-
-    if "err" in rsp:
-        m = rsp["err"]
-        raise Exception(f"Unable to configure Notecard connection: {m}")
-
-    print(f"Configured Notecard connection:\n{rsp}")
-
-
-def connectToNotecard(debugFlag=defaultDebugFlag, useSerial=defaultUseSerialFlag, portName=defaultPortName, baudRate=9600):
-    if useSerial:
-        port = serial.Serial(port=portName, baudrate=baudRate)
-        card = notecard.OpenSerial(port, debug=debugFlag)
-    else:
-        port = I2C(portName)
-        card = notecard.OpenI2C(port, 0, 0, debug=debugFlag)
-
-    return card
-
-
-if __name__ == '__main__':
-
-    productUID = os.getenv("PRODUCT_UID", defaultProductUID)
-    debugFlag = os.getenv("DEBUG", str(defaultDebugFlag)
-                          ).lower() in ('true', '1', 't')
-    useSerial = os.getenv('PORT_TYPE', str(
-        defaultUseSerialFlag)).lower() in ('uart', 'usb', 'serial')
-    portName = os.getenv('PORT', defaultPortName)
-    baud = os.getenv('BAUD', str(defaultBaudRate))
-
-    host = os.getenv("HOST", defaultHost)
-    scriptName = os.getenv('SCRIPT_NAME', scriptName)
-
-    print(f"Running: {__file__}")
-
-    message = f"\nProduct: {productUID}\nHost: {host}\nDebug: {debugFlag}\nUse Serial Connection:{useSerial}\nPort name: {portName}\nScript name: {scriptName}\n"
     print(message)
 
-    nc = connectToNotecard(
-        debugFlag=debugFlag, useSerial=useSerial, portName=portName, baudRate=int(baud))
+    
 
-    configureNotecard(nc, productUID=productUID, host=host)
 
-    dfu.setVersion(nc, appVersion)
+def isExpiredMS(timer):
+    return getTimeMS() > timer
 
-    start_check_update_loop(nc)
+def setTimerMS(periodMS):
+    return getTimeMS() + periodMS
+
+def main():
+
+    appConfig = config.loadConfig("secrets.json")
+
+    card = connect_notecard(appConfig)
+    
+    print(f"Version: {version.versionStr}")
+
+    dfu.setVersion(card, version.versionStr)
+    
+    configure_notecard(card, appConfig)
+
+    dfuReader = dfu.dfuReader(card)
+
+    millis = lambda : round(time.monotonic() * 1000)
+
+    updateManager = Updater(dfuReader=dfuReader, statusReporter=printStatus, getTimeMS=millis, fileOpener=open)
+    # updateManager.restart = reset
+
+    doUpdate = True
+    dfuTimer = 0
+    
+    dfuTaskPeriodMS = 5000
+    checkUpdateTaskPeriodMS = 10000
+    updateManager.start()
+
+    while True:
+
+        #only need one timed loop now
+        if doUpdate and isExpiredMS(dfuTimer):
+            updateManager.execute()
+            period = dfuTaskPeriodMS if updateManager.InProgress else checkUpdateTaskPeriodMS
+            dfuTimer = setTimerMS(period)
+
+        
+        
+        
+            
+
+
+        
+
+
+
+
+main()

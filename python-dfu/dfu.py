@@ -50,9 +50,9 @@ class dfuReader:
 
     def read(self, size=4096, num_retries=5):
 
-        if self._getTimeSec() > self._dfuModeResetExpiry:
-            self._requestDfuModeEntry()
-            self._dfuModeResetExpiry = self._getTimeSec() + self.DFUModeResetPeriodSec
+        # if self._getTimeSec() > self._dfuModeResetExpiry:
+        #     self._requestDfuModeEntry()
+        #     self._dfuModeResetExpiry = self._getTimeSec() + self.DFUModeResetPeriodSec
 
         if self._offset + size > self._length:
             size = self._length - self._offset
@@ -86,6 +86,9 @@ class dfuReader:
 
         length = writer.write(c)
         return length
+    
+    def IsUpdateAvailable(self):
+        return isUpdateAvailable(self.NCard)
 
     def GetInfo(self):
         return getUpdateInfo(self.NCard)
