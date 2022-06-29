@@ -4,6 +4,8 @@
 from abc import ABC, abstractmethod
 from mimetypes import init
 from utarfile import TarExtractor
+import dfu
+
 
 DEFAULT_DFU_MODE_ENTRY_TIMEOUT_SECS = 120
 
@@ -18,12 +20,10 @@ class Updater:
     _state = None
     _dfuReader = None
     _inProgress = False
-    def __init__(self, dfuReader = None, initialState = None, getTimeMS = lambda :0, fileOpener=None, fileCloser=None, restartFcn=_defaultRestartFunction, statusReporter = _defaultStatusReporter) -> None:
+    def __init__(self, card, initialState = None, getTimeMS = lambda :0, restartFcn=_defaultRestartFunction, statusReporter = _defaultStatusReporter) -> None:
         
-        self._dfuReader = dfuReader
+        self.Card = card
         self._getTimeMS = getTimeMS
-        self._fileOpener = fileOpener
-        self._fileCloser = fileCloser
         self._statusReporter  = statusReporter
         self.RestartFcn = restartFcn
 
@@ -69,7 +69,7 @@ class DFUState(ABC):
 
     @context.setter
     def context(self, context) -> None:
-        self._context = context
+        self.context = _context
 
     @abstractmethod
     def execute(self) -> None:
@@ -89,7 +89,7 @@ class DFUError(DFUState):
         self.Description = "Error: " + message
 
     def enter(self) -> None:
-        self._context._inProgress = False
+        self.context._inProgress = False
         
     def execute(self) -> None:
         pass
@@ -98,31 +98,32 @@ class DFUError(DFUState):
 class CheckForUpdate(DFUState):
     Description = "check for updates"
     def execute(self) -> None:
-        isAvailable = self._context._dfuReader.IsUpdateAvailable()
+        isAvailable = dfu.isUpdateAvailable(self.context.Card)
         if isAvailable:
-            self._context.transition_to(GetDFUInfo())
+            self.context.transition_to(GetDFUInfo())
 
 class GetDFUInfo(DFUState):
     Description = "get update info"
     def execute(self) -> None:
-        info = self._context._dfuReader.GetInfo()
+        info = dfu.getUpdateInfo(self.context.Card)
 
-        self._context.SourceName = info["source"]
-        self._context.SourceLength = info["length"]
+        self.context.SourceName = info["source"]
+        self.context.SourceLength = info["length"]
 
-        self._context.transition_to(EnterDFUMode())
+        self.context.transition_to(EnterDFUMode())
 
 
 class EnterDFUMode(DFUState):
     def execute(self):
-        self._context._dfuReader._requestDfuModeEntry()
-        self._context.transition_to(WaitForDFUMode())
+        dfu.enterDFUMode(self.context.Card)
+#        self.context._dfuReader._requestDfuModeEntry()
+        self.context.transition_to(WaitForDFUMode())
 
 
 class ExitDFUMode(DFUState):
     def execute(self):
-        self._context._dfuReader._requestDfuModeExit()
-        self._context.transition_to(UntarFile())
+        dfu.exitDFUMode(self.context.Card)
+        self.context.transition_to(UntarFile())
 
 
 class WaitForDFUMode(DFUState):
@@ -134,89 +135,87 @@ class WaitForDFUMode(DFUState):
     def execute(self) -> None:
 
         if self._timeoutExpiry == 0:
-            self._timeoutExpiry = self._context._getTimeMS() + self.TimeoutPeriodSecs*1000
+            self._timeoutExpiry = self.context._getTimeMS() + self.TimeoutPeriodSecs*1000
 
-        elif self._context._getTimeMS() > self._timeoutExpiry:
-            self._context.transition_to(
-                DFUError("Timeout waiting for DFU Mode"))
+        elif self.context._getTimeMS() > self._timeoutExpiry:
+            self.context.transition_to(DFUError("Timeout waiting for DFU Mode"))
             return
 
-        isDFUMode = self._context._dfuReader._requestDfuModeStatus()
+        isDFUMode = dfu.isDFUModeActive(self.context.Card)
 
         if isDFUMode:
-            self._context.transition_to(MigrateBytesToFile())
+            self.context.transition_to(MigrateBytesToFile())
             return
 
 
 class MigrateBytesToFile(DFUState):
     _numBytesWritten = 0
     _length = 0
+    _filename = ''
+    _filePointer = None
     Description = "migrate update"
     def enter(self) -> None:
         self._numBytesWritten = 0
-        self._length = self._context.SourceLength
-        self._context._dfuReader.seek(0)
-        self.context._dfuReader._length = self._length
+        self._length = self.context.SourceLength
+        self._filename = self.context.SourceName
+        self._reader = dfu.dfuReader(self.context.Card, info={"length":self._length})
 
-        if self._context._fileOpener is None:
-            return
-
-        self._filePointer = self._context._fileOpener(self._context.SourceName, 'wb')
+        self._filePointer = open(self._filename, 'wb')
 
     def exit(self) -> None:
+        if self._filePointer is None:
+            return
 
-        # if self._context._fileCloser is None:
-        #     return
-
-        #self._context._fileCloser(self._filePointer)
         self._filePointer.close()
 
     def execute(self) -> None:
 
         if self._numBytesWritten == self._length:
-            isValid = self._context._dfuReader.check_hash()
+            isValid = self._reader.check_hash()
             if isValid:
-                self._context.transition_to(ExitDFUMode())
+                self.context.transition_to(ExitDFUMode())
                 return
 
-            self._context.transition_to(DFUError())
+            self.context.transition_to(DFUError())
             return
-
-        n = self._context._dfuReader.read_to_writer(self._filePointer)
+        
+        n = self._reader.read_to_writer(self._filePointer)
 
         self._numBytesWritten += n
 
-        #self._context._statusUpdater("??", int(self._numBytesWritten *100 / self._length))
+        
+
+        #self.context._statusUpdater("??", int(self._numBytesWritten *100 / self._length))
 
 
 class UntarFile(DFUState):
     Description = "extract update files"
     _extractor = TarExtractor()
     def enter(self)-> None:
-        self._extractor.openFile(self._context.SourceName)
+        self._extractor.openFile(self.context.SourceName)
 
     def execute(self) -> None:
         try:
             hasMore = self._extractor.extractNext()
         except:
-            self._context.transition_to(DFUError(message="TAR extraction failed"))
+            self.context.transition_to(DFUError(message="TAR extraction failed"))
             return
 
         if hasMore:
             return
 
-        self._context.transition_to(Install())
+        self.context.transition_to(Install())
 
 class Install(DFUState):
     Description = "install update"
     def execute(self)->None:
-        self._context.transition_to(Restart())
+        self.context.transition_to(Restart())
 
 
 class Restart(DFUState):
     Description = "system restart "
     def execute(self)->None:
-        self._context._inProgress = False
-        self._context.RestartFcn()
+        self.context._inProgress = False
+        self.context.RestartFcn()
 
 
