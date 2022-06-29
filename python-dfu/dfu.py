@@ -12,7 +12,7 @@ class dfuReader:
     _offset = 0
     _length = 0
     _imageHash = None
-    _md5 = hashlib.md5()
+    _md5 = None
 
     def __init__(self, card, info=None):
         self.NCard = card
@@ -23,6 +23,7 @@ class dfuReader:
         self._length = info["length"]
         self._imageHash = info.get("md5", None)
             
+        self._md5 = hashlib.md5()
         
         
 

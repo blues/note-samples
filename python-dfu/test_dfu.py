@@ -293,6 +293,9 @@ def test_dfuReader_Read_UpdatesMd5(mock_dfuChunk):
     payload1 = b'chunk 1'
     payload2 = b'chunk 2'
     payload = payload1 + payload2
+
+    h = hashlib.md5(payload).hexdigest()
+
     mock_dfuChunk.side_effect = generateBinaryPayloadReader(payload)
 
     r = dfu.dfuReader(MagicMock(), info={"length":len(payload)})
@@ -303,7 +306,7 @@ def test_dfuReader_Read_UpdatesMd5(mock_dfuChunk):
     r.read(size=size1)
     r.read(size=size2)
 
-    assert r._md5.hexdigest() == hashlib.md5(payload).hexdigest()
+    assert r._md5.hexdigest() == h
 
 
 
@@ -905,6 +908,7 @@ def test_copyImageToWriter_populatesWriterWithContent(mock_open, mock_dfuChunk):
     payload = b'chunk 1'
     mock_dfuChunk.side_effect = generateBinaryPayloadReader(payload)
 
+    
     r = dfu.dfuReader(MagicMock(), info={"length":len(payload), "md5":hashlib.md5(payload).hexdigest()})
 
     mock_open.return_value = r
