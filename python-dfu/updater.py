@@ -82,15 +82,21 @@ class DFUState(ABC):
 
 class DFUError(DFUState):
 
-    def __init__(self, message="") -> None:
+    def __init__(self, message="", discardImage=False) -> None:
         self.message = message
         self.Description = "Error: " + message
+        self.discardImage = discardImage
 
     def enter(self) -> None:
         self.context._inProgress = False
         
     def execute(self) -> None:
-        pass
+        dfu.exitDFUMode(self.context.Card)
+
+        if self.discardImage:
+            dfu.setUpdateError(self.context.Card, self.message)
+
+        self.context.start()
 
 
 class CheckForUpdate(DFUState):
@@ -172,7 +178,7 @@ class MigrateBytesToFile(DFUState):
         if self._numBytesWritten == self._length:
             isValid = self._reader.check_hash()
             if not isValid:
-                self.context.transition_to(DFUError(f"Hash value does not match. Expected {self._reader._imageHash}, computed {self._reader.get_hash()}"))
+                self.context.transition_to(DFUError(f"Hash value does not match. Expected {self._reader._imageHash}, computed {self._reader.get_hash()}", discardImage=True))
                 return
 
             self.context.transition_to(ExitDFUMode())
@@ -198,7 +204,7 @@ class UntarFile(DFUState):
         try:
             hasMore = self._extractor.extractNext()
         except:
-            self.context.transition_to(DFUError(message="TAR extraction failed"))
+            self.context.transition_to(DFUError(message="TAR extraction failed", discardImage=True))
             return
 
         if hasMore:
@@ -210,6 +216,9 @@ class Install(DFUState):
     Description = "install update"
     def execute(self)->None:
         self.context.transition_to(Restart())
+
+    def exit(self)->None:
+        dfu.setUpdateDone(self.context.Card, "installation complete")
 
 
 class Restart(DFUState):

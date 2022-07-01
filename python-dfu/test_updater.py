@@ -393,7 +393,7 @@ def test_MigrateBytesToFile_execute_allBytesWritten_transitionToExitDFUMode():
     assert isinstance(u._state, ExitDFUMode)
 
 
-def test_MigrateBytesToFile_execute_allBytesWritten_hashCheckFails_transitionToExitDFUMode():
+def test_MigrateBytesToFile_execute_allBytesWritten_hashCheckFails_transitionToDFUError():
     n = 17
     m = MigrateBytesToFile()
     m._length = n
@@ -410,6 +410,7 @@ def test_MigrateBytesToFile_execute_allBytesWritten_hashCheckFails_transitionToE
     m.execute()
 
     assert isinstance(u._state, DFUError)
+    assert u._state.discardImage is True
 
 
 def test_DFUError_isa_DFUState_class():
@@ -419,11 +420,20 @@ def test_DFUError_isa_DFUState_class():
 
 def test_DFUError_constructor_sets_properties():
     e = DFUError()
-    assert e.message == ""
+    assert e.message is ""
+    assert e.discardImage is False
 
     m = "my error message"
     e = DFUError(m)
     assert e.message == m
+
+    e = DFUError(discardImage=True)
+    assert e.discardImage is True
+
+    e = DFUError(discardImage=False)
+    assert e.discardImage is False
+
+
 
 def test_DFUError_enter_sets_updater_InProgress_to_False():
     s = DFUError()
@@ -434,11 +444,60 @@ def test_DFUError_enter_sets_updater_InProgress_to_False():
 
     assert u.InProgress == False
 
-def test_DFUError_execute_does_not_error():
+@patch("dfu.exitDFUMode")
+def test_DFUError_execute_exits_DFUMode(mock_exit):
+    card = MagicMock()
+    u = Updater(card)
+
     s = DFUError()
+    s.context = u
+
     s.execute()
 
+    mock_exit.assert_called_once_with(card)
 
+
+@patch("dfu.setUpdateError")
+@patch("dfu.exitDFUMode")
+def test_DFUError_marksDFUAsFailed_if_discardImage_set(mock_exit, mock_setError):
+    card = MagicMock()
+    u = Updater(card)
+
+    m = "some error message"
+    s = DFUError(m, discardImage=True)
+    s.context = u
+
+    s.execute()
+
+    mock_exit.assert_called_once_with(card)
+    mock_setError.assert_called_once_with(card, m)
+
+@patch("dfu.setUpdateError")
+@patch("dfu.exitDFUMode")
+def test_DFUError_doesNoteMarksDFUAsFailed_if_discardImage_set_false(mock_exit, mock_setError):
+    card = MagicMock()
+    u = Updater(card)
+
+    m = "some error message"
+    s = DFUError(m, discardImage=False)
+    s.context = u
+
+    s.execute()
+
+    mock_exit.assert_called_once_with(card)
+    mock_setError.assert_not_called()
+
+@patch("dfu.exitDFUMode")
+def test_DFUError_transitions_to_CheckForUpdate(mock_exit):
+    card = MagicMock()
+
+    s = DFUError()
+    u = Updater(card, initialState=s)
+
+
+    s.execute()
+
+    assert isinstance(u._state, CheckForUpdate)
 
 def test_GetDFUInfo_isa_DFUState_class():
     i = GetDFUInfo()
@@ -555,6 +614,7 @@ def test_UntarFile_execute_errors_transitionTo_ErrorState():
     s.execute()
 
     assert isinstance(u._state, DFUError)
+    assert u._state.discardImage is True
     
 
 
@@ -565,12 +625,25 @@ def test_Install_isa_DFUState_class():
     assert isinstance(s, DFUState)
 
 
-def test_Install_execute_transitionsTo_Restart():
+@patch("dfu.setUpdateDone")
+def test_Install_execute_transitionsTo_Restart(mock_setDone):
     s = Install()
     u = Updater(MagicMock(),initialState=s)
     s.execute()
 
     assert isinstance(u._state, Restart)
+
+@patch("dfu.setUpdateDone")
+def test_Install_exit_setsDfuProcessToDone(mock_setDone):
+    card = MagicMock()
+    u = Updater(card)
+
+    s = Install()
+    s.context = u
+
+    s.exit()
+
+    mock_setDone.assert_called_once_with(card, "installation complete")
 
 
 
