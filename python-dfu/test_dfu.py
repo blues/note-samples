@@ -644,6 +644,12 @@ def test_getUpdateInfo_when_not_available():
 
     assert f == None
 
+    setResponse(port, {"random-field":   "random-value"})
+
+    f = dfu.getUpdateInfo(nCard)
+
+    assert f == None
+
 def test_enterDFUMode_sendsRequestToNotecard():
     nCard, port = createNotecardAndPort()
     port = addWriteableBytesBuffer(port)
@@ -848,7 +854,7 @@ def test_waitForDFUMode_raisesExceptionOnTimeout(mock_isactive):
 
 
 @patch("dfu.isDFUModeActive")
-def test_waitForDFUMode_raisesExceptionOnTimeout(mock_isactive):
+def test_waitForDFUMode_calls_sleep_function(mock_isactive):
     mock_isactive.side_effect = [False, True]
 
     nCard, port = createNotecardAndPort()
@@ -861,6 +867,21 @@ def test_waitForDFUMode_raisesExceptionOnTimeout(mock_isactive):
     dfu.waitForDFUMode(nCard, retryPeriodMS = sleepPeriod, getTimeMS = t, sleepMS = s)
 
     s.assert_called_once_with(sleepPeriod)
+
+@patch("dfu.sleep")
+@patch("dfu.isDFUModeActive")
+def test_waitForDFUMode_calls_default_sleep_function(mock_isactive, mock_sleep):
+    mock_isactive.side_effect = [False, True]
+
+    nCard, port = createNotecardAndPort()
+    t = MagicMock()
+    t.return_value = 0
+
+    sleepPeriodSec = 7
+    
+    dfu.waitForDFUMode(nCard, retryPeriodMS = sleepPeriodSec*1000, getTimeMS = t)
+
+    mock_sleep.assert_called_once_with(sleepPeriodSec)
 
 
 

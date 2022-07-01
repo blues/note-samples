@@ -1,6 +1,3 @@
-
-
-##from __future__ import annotations
 from abc import ABC, abstractmethod
 from mimetypes import init
 from utarfile import TarExtractor
@@ -69,11 +66,11 @@ class DFUState(ABC):
 
     @context.setter
     def context(self, context) -> None:
-        self.context = _context
+        self._context = context
 
     @abstractmethod
     def execute(self) -> None:
-        pass
+        pass # pragma: no cover
 
     def exit(self) -> None:
         pass
@@ -116,7 +113,6 @@ class GetDFUInfo(DFUState):
 class EnterDFUMode(DFUState):
     def execute(self):
         dfu.enterDFUMode(self.context.Card)
-#        self.context._dfuReader._requestDfuModeEntry()
         self.context.transition_to(WaitForDFUMode())
 
 
@@ -172,13 +168,14 @@ class MigrateBytesToFile(DFUState):
 
         if self._numBytesWritten == self._length:
             isValid = self._reader.check_hash()
-            if isValid:
-                self.context.transition_to(ExitDFUMode())
+            if not isValid:
+                self.context.transition_to(DFUError())
                 return
 
-            self.context.transition_to(DFUError())
+            self.context.transition_to(ExitDFUMode())
             return
-        
+
+            
         n = self._reader.read_to_writer(self._filePointer)
 
         self._numBytesWritten += n

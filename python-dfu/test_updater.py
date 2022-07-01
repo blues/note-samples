@@ -2,6 +2,7 @@ from logging.handlers import DEFAULT_UDP_LOGGING_PORT
 from multiprocessing import context
 from turtle import up
 from unittest.mock import patch, mock_open, MagicMock
+import pytest
 
 from updater import Updater, DFUState, CheckForUpdate, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, Install, Restart, DFUError
 
@@ -140,6 +141,25 @@ def test_start_transitions_to_CheckForUpdate():
     u = Updater(MagicMock())
     u.start()
     assert isinstance(u._state, CheckForUpdate)
+
+def test_default_restart_function_errors_on_execution():
+    u = Updater(MagicMock())
+
+    with pytest.raises(NotImplementedError):
+        u.RestartFcn()
+
+
+def test_DFUState_context_set():
+    c = MagicMock()
+    class DFUStateWrapper(DFUState):
+        def execute(self):
+            pass
+
+    s = DFUStateWrapper()
+    s.context = c
+
+    assert s.context == c
+
 
 def test_CheckForUpdate_is_a_DFUState_class():
     s = CheckForUpdate()
@@ -410,6 +430,10 @@ def test_DFUError_enter_sets_updater_InProgress_to_False():
     s.enter()
 
     assert u.InProgress == False
+
+def test_DFUError_execute_does_not_error():
+    s = DFUError()
+    s.execute()
 
 
 
