@@ -28,6 +28,7 @@ def test_Updater_constructor_set_properties():
     u = Updater(card)
     assert u.SourceName == None
     assert u.SourceLength == 0
+    assert u.SourceHash == None
 
     r = MagicMock()
     u = Updater(card, restartFcn = r)
@@ -289,6 +290,7 @@ def test_MigrateBytesToFile_enter_populatesProperties(mock_open):
     u = Updater(card)
     u.SourceName = 'abc'
     u.SourceLength = 13
+    u.SourceHash = 'def'
 
     m._context = u
 
@@ -299,6 +301,7 @@ def test_MigrateBytesToFile_enter_populatesProperties(mock_open):
     assert m._filename == 'abc'
     assert m._reader.NCard == card
     assert m._reader._length == u.SourceLength
+    assert m._reader._imageHash == 'def'
     mock_open.assert_called_once_with('abc', 'wb')
 
 
@@ -445,9 +448,10 @@ def test_GetDFUInfo_isa_DFUState_class():
 def test_GetDFUInfo_execute_requestsAndStoresDFUInfo(mock_getInfo):
     sourceName = "abc"
     length = 13
+    md5 = 'def'
     i = GetDFUInfo()
 
-    mock_getInfo.return_value = {"source":sourceName,"length":length}
+    mock_getInfo.return_value = {"source":sourceName,"length":length,"md5":md5}
     card = MagicMock()
     u = Updater(card, initialState=i)
 
@@ -457,11 +461,12 @@ def test_GetDFUInfo_execute_requestsAndStoresDFUInfo(mock_getInfo):
 
     assert u.SourceName == sourceName
     assert u.SourceLength == length
+    assert u.SourceHash == md5
 
 @patch("dfu.getUpdateInfo")
 def test_GetDFUInfo_execute_transitions_to_EnterDFUMode(mock_getInfo):
     r = MagicMock()
-    mock_getInfo.return_value = {"source":"filename","length":7}
+    mock_getInfo.return_value = {"source":"filename","length":7,"md5":"fake-hash-value"}
     s = GetDFUInfo()
     u = Updater(MagicMock(), initialState=s)
 

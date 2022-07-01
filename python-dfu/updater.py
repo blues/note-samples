@@ -26,6 +26,7 @@ class Updater:
 
         self.SourceName = None
         self.SourceLength = 0
+        self.SourceHash = None
 
         self.transition_to(initialState)
 
@@ -106,6 +107,7 @@ class GetDFUInfo(DFUState):
 
         self.context.SourceName = info["source"]
         self.context.SourceLength = info["length"]
+        self.context.SourceHash = info["md5"]
 
         self.context.transition_to(EnterDFUMode())
 
@@ -154,7 +156,8 @@ class MigrateBytesToFile(DFUState):
         self._numBytesWritten = 0
         self._length = self.context.SourceLength
         self._filename = self.context.SourceName
-        self._reader = dfu.dfuReader(self.context.Card, info={"length":self._length})
+        self._hash = self.context.SourceHash
+        self._reader = dfu.dfuReader(self.context.Card, info={"length":self._length, "md5":self._hash})
 
         self._filePointer = open(self._filename, 'wb')
 
@@ -169,7 +172,7 @@ class MigrateBytesToFile(DFUState):
         if self._numBytesWritten == self._length:
             isValid = self._reader.check_hash()
             if not isValid:
-                self.context.transition_to(DFUError())
+                self.context.transition_to(DFUError(f"Hash value does not match. Expected {self._reader._imageHash}, computed {self._reader.get_hash()}"))
                 return
 
             self.context.transition_to(ExitDFUMode())
