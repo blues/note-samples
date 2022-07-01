@@ -160,25 +160,34 @@ def main():
     
     configure_notecard(card, appConfig)
 
-    dfuReader = dfu.dfuReader(card)
+    
 
     millis = lambda : round(time.monotonic() * 1000)
 
-    updateManager = Updater(dfuReader=dfuReader, statusReporter=printStatus, getTimeMS=millis, fileOpener=open)
-    # updateManager.restart = reset
+    def dummyReset():
+        printStatus("executed reset")
 
-    doUpdate = True
+
+    updateManager = Updater(card, statusReporter=printStatus, getTimeMS=millis, restartFcn=dummyReset)
+
+    enableUpdate = True
+    injectHashError = False
     dfuTimer = 0
     
-    dfuTaskPeriodMS = 5000
-    checkUpdateTaskPeriodMS = 10000
+    dfuTaskPeriodMS = 1000
+    checkUpdateTaskPeriodMS = 5000
+    # dfuTaskPeriodMS = 5000
+    # checkUpdateTaskPeriodMS = 10000
     updateManager.start()
 
     while True:
 
         #only need one timed loop now
-        if doUpdate and isExpiredMS(dfuTimer):
+        if enableUpdate and isExpiredMS(dfuTimer):
             updateManager.execute()
+            if injectHashError:
+                updateManager.SourceHash = None
+
             period = dfuTaskPeriodMS if updateManager.InProgress else checkUpdateTaskPeriodMS
             dfuTimer = setTimerMS(period)
 
