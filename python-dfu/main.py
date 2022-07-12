@@ -182,10 +182,12 @@ def main():
 
     while True:
 
-        #only need one timed loop now
         if enableUpdate and isExpiredMS(dfuTimer):
             updateManager.execute()
             if injectHashError:
+                # This is strictly for testing.
+                #   A hash error should result in a DFU failure, but the 
+                #   DFU process should be able to recover, ready for next DFU attempt
                 updateManager.SourceHash = None
 
             period = dfuTaskPeriodMS if updateManager.InProgress else checkUpdateTaskPeriodMS
