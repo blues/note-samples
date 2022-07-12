@@ -13,11 +13,14 @@ def _defaultRestartFunction()->None:
 def _defaultStatusReporter(message=None, percentComplete=None)->None:
     pass
 
+
+
 class Updater:
     _state = None
     _dfuReader = None
     _inProgress = False
-    def __init__(self, card, initialState = None, getTimeMS = lambda :0, restartFcn=_defaultRestartFunction, statusReporter = _defaultStatusReporter) -> None:
+    _useWatchdog = False
+    def __init__(self, card, initialState = None, getTimeMS = lambda :0, restartFcn=_defaultRestartFunction, statusReporter = _defaultStatusReporter, suppressWatchdog = True) -> None:
         
         self.Card = card
         self._getTimeMS = getTimeMS
@@ -27,6 +30,8 @@ class Updater:
         self.SourceName = None
         self.SourceLength = 0
         self.SourceHash = None
+
+        self.SuppressWatchdog = suppressWatchdog
 
         self.transition_to(initialState)
 
@@ -104,7 +109,19 @@ class CheckForUpdate(DFUState):
     def execute(self) -> None:
         isAvailable = dfu.isUpdateAvailable(self.context.Card)
         if isAvailable:
+            self.context.transition_to(CheckWatchdogRequirement())
+
+class CheckWatchdogRequirement(DFUState):
+
+    def enter(self) -> None:
+        if self.context.SuppressWatchdog:
             self.context.transition_to(GetDFUInfo())
+
+    def execute(self)->None:
+        self.context._useWatchdog = dfu.isWatchdogRequired(self.context.Card)
+
+        self._context.transition_to(GetDFUInfo())
+
 
 class GetDFUInfo(DFUState):
     Description = "get update info"
@@ -191,7 +208,7 @@ class MigrateBytesToFile(DFUState):
 
         
 
-        #self.context._statusUpdater("??", int(self._numBytesWritten *100 / self._length))
+        self.context._statusReporter("Migration progress", int(self._numBytesWritten *100 / self._length))
 
 
 class UntarFile(DFUState):

@@ -132,6 +132,7 @@ def test_dfuReader_constructor_with_known_image_info():
     assert(r._imageHash == info["md5"])
     assert(r._offset == 0)
     assert isinstance(r._md5, hashlib._hashlib.HASH)
+    assert isinstance(r._watchDog, dfu.emptyDFUWatchDog)
 
 
 @patch("dfu.getUpdateInfo")
@@ -308,6 +309,31 @@ def test_dfuReader_Read_UpdatesMd5(mock_dfuChunk):
 
     assert r._md5.hexdigest() == h
 
+def test_dfuReader_Read_watchDogNotPatIfNoRead():
+
+    w = MagicMock()
+    r = dfu.dfuReader(MagicMock(), info={"length":1})
+    r._watchDog = w
+
+    r.read(size=0)
+
+    w.pat.assert_not_called()
+
+@patch("dfu._requestDfuChunk")
+def test_dfuReader_Read_watchDogPatIfReadAttempted(mock_dfuChunk):
+
+    payload = b'random payload'
+    mock_dfuChunk.side_effect = generateBinaryPayloadReader(payload)
+
+    w = MagicMock()
+    r = dfu.dfuReader(MagicMock(), info={"length":len(payload)})
+    r._watchDog = w
+
+    r.read()
+
+    w.pat.call_once_with()
+
+
 
 
 def test_dfuReader_GetHash():
@@ -381,6 +407,28 @@ def test_dfuReader_Read_chunkReadFails_RaisesException():
         c = d.read(num_retries=num_retries)
     assert d._offset == 0
     assert nc.Transaction.call_count == num_retries
+
+
+def test_dfuReader_useWatchdog_appliesWatchdogIfProvided():
+    
+    r = dfu.dfuReader(MagicMock(), info={"length":0})
+
+    w = MagicMock()
+
+    r.useWatchdog(w)
+
+    assert r._watchDog == w
+
+
+def test_dfuReader_useWatchdog_appliesDFUWatchDogIfNoArgumentProvided():
+    
+    r = dfu.dfuReader(MagicMock(), info={"length":0})
+
+    w = MagicMock()
+
+    r.useWatchdog()
+
+    assert isinstance(r._watchDog, dfu.dfuWatchDog)
 
 
 
@@ -1004,32 +1052,50 @@ def test_copyImageToWriter_callsProgressUpdaterWithPercentCompletion(mock_open):
 
 
 
+@patch("dfu.open")
+@patch("dfu.isWatchdogRequired")
+def test_copyImageToWriter_applysWatchDogIfRequired(mock_isRequired, mock_open):
+    mock_isRequired.return_value = True
 
-# def test_reader_IsUpdateAvailable_when_not_available():
+    totalLength = 4
+    readLength = 1
+    r = dfu.dfuReader(MagicMock(), info={"length":totalLength})
+    r.read = MagicMock(return_value=b'a')
+    r.check_hash = MagicMock(return_value=True)
+    r.useWatchdog = MagicMock()
+    mock_open.return_value = r
+    writer = MagicMock()
+    writer.write.side_effect = [readLength, 0]
 
-#     nCard, port = createNotecardAndPort()
-#     reader = dfu.dfuReader(nCard)
 
-#     setResponse(port, {"mode":   "idle"})
+    card = MagicMock()
+    dfu.copyImageToWriter(card, writer, size=readLength, suppressWatchdog = False)
 
-#     tf = reader.IsUpdateAvailable()
+    mock_isRequired.assert_called_once_with(card)
+    r.useWatchdog.assert_called_once_with()
 
-#     assert tf == False
 
-#     setResponse(port, {"mode":   "downloading"})
+@patch("dfu.open")
+@patch("dfu.isWatchdogRequired")
+def test_copyImageToWriter_doesNotApplysWatchDogIfNotRequired(mock_isRequired, mock_open):
+    mock_isRequired.return_value = False
 
-#     tf = reader.IsUpdateAvailable()
+    totalLength = 4
+    readLength = 1
+    r = dfu.dfuReader(MagicMock(), info={"length":totalLength})
+    r.read = MagicMock(return_value=b'a')
+    r.check_hash = MagicMock(return_value=True)
+    r.useWatchdog = MagicMock()
+    mock_open.return_value = r
+    writer = MagicMock()
+    writer.write.side_effect = [readLength, 0]
 
-#     assert tf == False
 
-#     setResponse(port, {"mode":   "error"})
+    card = MagicMock()
+    dfu.copyImageToWriter(card, writer, size=readLength, suppressWatchdog = False)
 
-#     tf = reader.IsUpdateAvailable()
-
-#     assert tf == False
-
-    
-
+    mock_isRequired.assert_called_once_with(card)
+    r.useWatchdog.assert_not_called()
 
 def test_setVersion_SendsNotecardRequest():
     nCard, port = createNotecardAndPort()
@@ -1043,3 +1109,106 @@ def test_setVersion_SendsNotecardRequest():
     req1 = extractRequestsWrittenToBuffer(port)[0]
     assert req1["req"] == "dfu.status"
     assert req1["version"] == verString
+
+
+def test_emptyDFUWatchDog_instantiates_and_does_nothing_on_pat():
+    card = MagicMock()
+    d = dfu.emptyDFUWatchDog(card)
+    d.pat()
+
+    card.Transaction.assert_not_called()
+
+
+def test_dfuWatchDog_constructor_setsInstanceProperties():
+    card = MagicMock()
+
+    d = dfu.dfuWatchDog(card)
+
+    assert d.card == card
+    assert d._timeout == 0
+
+    d = dfu.dfuWatchDog(card, periodMS = 17)
+    assert d._periodMS == 17
+
+    g = MagicMock()
+    d = dfu.dfuWatchDog(card, getTimeMS=g)
+    assert d._getTimeMS == g
+
+
+
+
+def test_dfuWatchDog_pat_timerNotExpired_doesNotSendMessageToNotecard():
+    card = MagicMock()
+
+    getTimeMS = MagicMock(return_value=13)
+    d = dfu.dfuWatchDog(card, getTimeMS = getTimeMS)
+    d._timeout = 17
+
+    d.pat()
+
+    card.Transaction.assert_not_called()
+
+
+def test_dfuWatchDog_pat_timerExpired_sendsRequestToNotecard_resetsTimeout():
+    card = MagicMock()
+
+    n = 17
+    p = 19
+    getTimeMS = MagicMock(return_value=n)
+    d = dfu.dfuWatchDog(card, periodMS = p, getTimeMS=getTimeMS)
+
+    d.pat()
+
+    
+    card.Transaction.assert_called_once_with({"req":"hub.set","mode":"dfu"})
+    
+    getTimeMS.assert_called_once()
+
+    assert d._timeout == n+p
+
+def test_isWatchdogRequired():
+    card = MagicMock()
+
+    def setVersion(major, minor, patch, build=0):
+
+        card.version.return_value = {"body":{
+            "version":f"notecard-{major}.{minor}.{patch}",
+            "ver_major": major,
+            "ver_minor": minor,
+            "ver_patch": patch,
+            "ver_build": build
+        },
+        "api": 1
+        }
+    
+    
+    setVersion(1,5,1)
+    assert dfu.isWatchdogRequired(card) == True
+    
+    setVersion(2,1,1)
+    assert dfu.isWatchdogRequired(card) == True
+
+    
+    setVersion(3,1,1)
+    assert dfu.isWatchdogRequired(card) == True
+
+    setVersion(3,2,1)
+    assert dfu.isWatchdogRequired(card) == True
+
+    setVersion(2,3,1)
+    assert dfu.isWatchdogRequired(card) == False
+
+    
+    setVersion(3,3,1)
+    assert dfu.isWatchdogRequired(card) == False
+
+
+    setVersion(2,4,1)
+    assert dfu.isWatchdogRequired(card) == False
+
+    
+    setVersion(3,4,1)
+    assert dfu.isWatchdogRequired(card) == False
+
+
+

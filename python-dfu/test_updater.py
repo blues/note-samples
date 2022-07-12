@@ -4,7 +4,7 @@ from turtle import up
 from unittest.mock import patch, mock_open, MagicMock
 import pytest
 
-from updater import Updater, DFUState, CheckForUpdate, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, Install, Restart, DFUError
+from updater import Updater, DFUState, CheckForUpdate, CheckWatchdogRequirement, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, Install, Restart, DFUError
 
 
 def test_Updater_constructor_set_properties():
@@ -29,6 +29,8 @@ def test_Updater_constructor_set_properties():
     assert u.SourceName == None
     assert u.SourceLength == 0
     assert u.SourceHash == None
+    assert u.SuppressWatchdog == True
+    assert u._useWatchdog == False
 
     r = MagicMock()
     u = Updater(card, restartFcn = r)
@@ -40,6 +42,13 @@ def test_Updater_constructor_set_properties():
 
     u = Updater(card)
     assert u.InProgress == False
+
+    u = Updater(card, suppressWatchdog = False)
+    assert u.SuppressWatchdog == False
+    assert u._useWatchdog == False
+
+
+    
 
 
 def test_transition_to_none_to_state_from_argument():
@@ -201,6 +210,81 @@ def test_CheckForUpdate_execute_hasUpdate_transitionsToGetInfo(mock_isAvailable)
     assert isinstance(u._state, GetDFUInfo)
 
 
+@patch("dfu.isUpdateAvailable")
+def test_CheckForUpdate_execute_hasUpdate_transitionsTo_CheckWatchdogRequirement_if_watchdog_not_suppressed(mock_isAvailable):
+    s = CheckForUpdate()
+    mock_isAvailable.return_value = True
+
+    u = Updater(MagicMock(), initialState=s, suppressWatchdog = False)
+
+    s.execute()
+
+    assert isinstance(u._state, CheckWatchdogRequirement)
+
+
+def test_CheckWatchdogRequirement_is_a_DFUState_class():
+    s = CheckWatchdogRequirement()
+    assert isinstance(s, DFUState)
+
+def test_CheckWatchdogRequirement_enter_transitions_to_GETDFUINFO_if_watchdog_is_suppressed():
+
+    s = CheckWatchdogRequirement()
+    u = Updater(MagicMock(), suppressWatchdog = True)
+
+    s._context = u
+
+    s.enter()
+
+    assert isinstance(u._state, GetDFUInfo)
+
+def test_CheckWatchdogRequirement_enter_still_in_CheckWatchdogRequirement_if_watchdog_is_not_suppressed():
+
+    s = CheckWatchdogRequirement()
+    u = Updater(MagicMock(), suppressWatchdog = False)
+
+    s.context = u
+    u._state = s
+
+    s.enter()
+
+    assert isinstance(u._state, CheckWatchdogRequirement)
+
+
+@patch("dfu.isWatchdogRequired")
+def test_CheckWatchdogRequirement_execute_setsUpdaterUseWatchdogFlag(mock_isRequired):
+
+    mock_isRequired.return_value = True
+    s = CheckWatchdogRequirement()
+    u = Updater(MagicMock(), suppressWatchdog = False, initialState=s)
+
+    s.execute()
+
+    assert u._useWatchdog == True
+
+
+    mock_isRequired.return_value = False
+    s = CheckWatchdogRequirement()
+    u = Updater(MagicMock(), suppressWatchdog = False, initialState=s)
+
+    s.execute()
+
+    assert u._useWatchdog == False
+
+
+@patch("dfu.isWatchdogRequired")
+def test_CheckWatchdogRequirement_execute_transitions_to_GETDFUINFO(mock_isRequired):
+
+    mock_isRequired.return_value = False
+    s = CheckWatchdogRequirement()
+    u = Updater(MagicMock(), suppressWatchdog = False, initialState=s)
+
+    s.execute()
+
+    assert isinstance(u._state, GetDFUInfo)
+
+
+
+
 def test_EnterDFUMode_is_a_DFUState_class():
     s = EnterDFUMode()
     assert isinstance(s, DFUState)
@@ -327,7 +411,7 @@ def test_MigrateBytesToFile_opensFileOnStateEntry_closesFileOnStateExit(mock_ope
         m._filePointer.close.assert_called_once()
 
 
-def test_MigrateBytesToFile_exitsStateCleanlyIfNoFileOpened():
+def test_MigrateBytesToFile_exitsStateWithoutErrorIfNoFileOpened():
 
        
         m = MigrateBytesToFile()
@@ -361,6 +445,7 @@ def test_MigrateBytesToFile_execute_incrementsBytesWritten():
     initialBytesWritten = 17
     m = MigrateBytesToFile()
     m._numBytesWritten = initialBytesWritten
+    m._length = 1
 
     r = MagicMock()
     r.read_to_writer.return_value = bytesWritten
@@ -412,6 +497,30 @@ def test_MigrateBytesToFile_execute_allBytesWritten_hashCheckFails_transitionToD
     assert isinstance(u._state, DFUError)
     assert u._state.discardImage is True
 
+def test_MigrateBytesToFile_execute_callsProgressReporterWithPercentCompletion():
+    bytesWritten = 7
+    initialBytesWritten = 13
+    totalImageBytes = 31
+    m = MigrateBytesToFile()
+    m._numBytesWritten = initialBytesWritten
+    m._length = totalImageBytes
+
+
+    r = MagicMock()
+    r.read_to_writer.return_value = bytesWritten
+
+    p = MagicMock()
+    u = Updater(MagicMock(),statusReporter = p)
+
+    m._context = u
+    m._filePointer = MagicMock()
+    m._reader = r
+
+
+    m.execute()
+
+    expectedPercentComplete = int((bytesWritten + initialBytesWritten)*100/totalImageBytes)
+    p.assert_called_once_with("Migration progress", expectedPercentComplete)
 
 def test_DFUError_isa_DFUState_class():
     e = DFUError()
@@ -508,13 +617,13 @@ def test_GetDFUInfo_execute_requestsAndStoresDFUInfo(mock_getInfo):
     sourceName = "abc"
     length = 13
     md5 = 'def'
-    i = GetDFUInfo()
+    s = GetDFUInfo()
 
     mock_getInfo.return_value = {"source":sourceName,"length":length,"md5":md5}
     card = MagicMock()
-    u = Updater(card, initialState=i)
+    u = Updater(card, initialState=s)
 
-    i.execute()
+    s.execute()
 
     mock_getInfo.assert_called_once_with(card)
 

@@ -13,7 +13,7 @@ class dfuReader:
     _length = 0
     _imageHash = None
     _md5 = None
-
+    
     def __init__(self, card, info=None):
         self.NCard = card
 
@@ -24,7 +24,7 @@ class dfuReader:
         self._imageHash = info.get("md5", None)
             
         self._md5 = hashlib.md5()
-        
+        self._watchDog = emptyDFUWatchDog(card)
         
 
 
@@ -75,6 +75,9 @@ class dfuReader:
 
         self._md5.update(c)
         self._offset += size
+
+        self._watchDog.pat()
+
         return c
 
     def read_to_writer(self, writer, size=4096, num_retries=5):
@@ -95,6 +98,12 @@ class dfuReader:
     def check_hash(self):
         return (self.get_hash() == self._imageHash)
 
+    def useWatchdog(self, watchdog=None):
+        if watchdog is None:
+            watchdog = dfuWatchDog(self.NCard)
+
+        self._watchDog = watchdog
+
 def _cardTransactionFailsOnNotecardErrorMessage(card, req, messageHeader='Notecard returned error'):
 
     rsp = card.Transaction(req)
@@ -104,7 +113,48 @@ def _cardTransactionFailsOnNotecardErrorMessage(card, req, messageHeader='Noteca
 
     return rsp
 
+def _getTimeMS():
+    return int(time()*1000)
 
+def _sleepMS(p):
+    sleep(p/1000)
+
+class emptyDFUWatchDog():
+    def __init__(self, card, periodMS = 300000, getTimeMS=_getTimeMS):
+        pass
+
+    def pat(self):
+        pass
+
+class dfuWatchDog(emptyDFUWatchDog):
+    _periodMS=0
+    _timeout = 0
+    def __init__(self, card, periodMS = 300000, getTimeMS=_getTimeMS):
+        self.card = card
+        self._periodMS = periodMS
+        self._getTimeMS = getTimeMS
+        
+
+    def pat(self):
+        n = self._getTimeMS()
+        if n < self._timeout:
+            return
+
+        self._timeout = n + self._periodMS
+
+        enterDFUMode(self.card)
+
+def isWatchdogRequired(card):
+    versionInfo = card.version()
+
+    major = versionInfo["body"]["ver_major"]
+    minor = versionInfo["body"]["ver_minor"]
+
+    isRequired = (major < 2) or (major == 2 and minor < 3) or (major == 3 and minor < 3)
+
+    return isRequired
+    
+    
 DFU_MODE_QUERY_RETRY_SEC = 2.5
 
 
@@ -190,11 +240,6 @@ def _requestDfuChunk(card, start, length):
 
         return content
 
-def _getTimeMS():
-    return int(time()*1000)
-
-def _sleepMS(p):
-    sleep(p/1000)
 
 def waitForDFUMode(card, timeoutMS = 120000, getTimeMS = _getTimeMS, retryPeriodMS = DFU_MODE_QUERY_RETRY_SEC, sleepMS = _sleepMS):
     t = getTimeMS() + timeoutMS
@@ -211,9 +256,12 @@ def open(card):
 
     return dfuReader(card)
 
-def copyImageToWriter(card, writer, size=4096, reader=None, progressUpdater=lambda m: None):
+def copyImageToWriter(card, writer, size=4096, reader=None,progressUpdater=lambda m:None, suppressWatchdog = True):
 
     with open(card) as r:
+        if not suppressWatchdog and isWatchdogRequired(card):
+            r.useWatchdog()
+
         numBytesWritten = 1
         totalBytesWritten = 0
         n = r._length
