@@ -168,7 +168,7 @@ def main():
         printStatus("executed reset")
 
 
-    updateManager = Updater(card, statusReporter=printStatus, getTimeMS=millis, restartFcn=dummyReset)
+    updateManager = Updater(card, statusReporter=printStatus, getTimeMS=millis, restartFcn=dummyReset, suppressWatchdog = False)
 
     enableUpdate = True
     injectHashError = False
