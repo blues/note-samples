@@ -54,6 +54,7 @@ def test_QueryTriggerSource_fileTrigger():
 def test_ProcessAttnInfo_noInfo(rcMock):
     info = {}
     card = Mock()
+    card.Transaction.return_value={}
     attn.ProcessAttnInfo(card, info)
     rcMock.assert_not_called()
 
@@ -65,7 +66,7 @@ def test_ProcessAttnInfo_fileInfo(rcMock):
     attn.ProcessAttnInfo(card, info)
 
     rcMock.assert_called_once_with(card)
-    
+
 @patch('attn.ReadCommands')
 def test_ProcessAttnInfo_moreThanOneFile(rcMock):
     info = {"files":["commands.qi", "anotherfile.db"]}

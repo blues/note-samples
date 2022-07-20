@@ -4,6 +4,7 @@ from unittest.mock import patch, mock_open, MagicMock
 
 from updater import Updater, DFUState, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, DFUError
 
+
 def test_Updater_constructor_set_properties():
     s = MagicMock()
     u = Updater(initialState=s)
@@ -11,19 +12,19 @@ def test_Updater_constructor_set_properties():
     assert u._state == s
 
     r = MagicMock()
-    u = Updater(dfuReader = r)
+    u = Updater(dfuReader=r)
 
     assert u._dfuReader == r
 
     t = MagicMock()
-    u = Updater(getTimeMS = t)
+    u = Updater(getTimeMS=t)
 
     assert u._getTimeMS == t
 
     f = MagicMock()
     c = MagicMock()
 
-    u = Updater(fileOpener = f, fileCloser = c)
+    u = Updater(fileOpener=f, fileCloser=c)
 
     assert u._fileOpener == f
     assert u._fileCloser == c
@@ -31,7 +32,6 @@ def test_Updater_constructor_set_properties():
     u = Updater()
     assert u.SourceName == None
     assert u.SourceLength == 0
-
 
 
 def test_transition_to_none_to_state_from_argument():
@@ -45,6 +45,7 @@ def test_transition_to_none_to_state_from_argument():
     assert u._state == s
     assert u._state._context == u
 
+
 def test_transition_to_state_is_none():
     s = MagicMock()
     u = Updater(initialState=s)
@@ -53,6 +54,7 @@ def test_transition_to_state_is_none():
     u.transition_to()
 
     assert u._state is None
+
 
 def test_transition_from_initial_state_to_new_state():
     s1 = MagicMock()
@@ -64,6 +66,7 @@ def test_transition_from_initial_state_to_new_state():
     assert u._state == s2
     assert u._state._context == u
 
+
 def test_transition_to_calls_exit_before_applying_new_state():
     s1 = MagicMock(spec=DFUState)
     u = Updater(initialState=s1)
@@ -74,8 +77,6 @@ def test_transition_to_calls_exit_before_applying_new_state():
     assert u._state is None
 
 
-
-
 def test_transition_to_calls_enter():
     s1 = MagicMock(spec=DFUState)
     u = Updater(initialState=None)
@@ -83,24 +84,26 @@ def test_transition_to_calls_enter():
     u.transition_to(s1)
 
     s1.enter.assert_called_once()
+
+
 def test_transition_to_calls_enter_after_applying_new_state_context():
     class TestState(DFUState):
         def execute(self) -> None:
             pass
-        def enter(self)->None:
+
+        def enter(self) -> None:
             assert hasattr(self, '_context')
             assert self._context is not None
-    
+
     u = Updater(initialState=None)
 
     u.transition_to(TestState())
-
-    
 
 
 def test_execute_state_is_none_throws_no_exceptions():
     u = Updater(initialState=None)
     u.execute()
+
 
 def test_execute_state_execute_method_is_called_once():
     s = MagicMock()
@@ -115,6 +118,7 @@ def test_EnterDFUMode_is_a_DFUState_class():
     s = EnterDFUMode()
     assert isinstance(s, DFUState)
 
+
 def test_EnterDFUMode_execute_callsDfuModeEntryRequest_transitionsToWaitForDFUMode():
     s = EnterDFUMode()
     d = MagicMock()
@@ -125,41 +129,43 @@ def test_EnterDFUMode_execute_callsDfuModeEntryRequest_transitionsToWaitForDFUMo
     d._requestDfuModeEntry.assert_called_once()
     assert isinstance(u._state, WaitForDFUMode)
 
+
 def test_WaitForDFUMode_constructor_sets_properties():
     w = WaitForDFUMode()
     assert w.TimeoutPeriodSecs == 120
     assert w._timeoutExpiry == 0
 
     timeOutPeriodSecs = 11
-    w = WaitForDFUMode(timeoutPeriodSecs = timeOutPeriodSecs)
+    w = WaitForDFUMode(timeoutPeriodSecs=timeOutPeriodSecs)
 
     assert w.TimeoutPeriodSecs == timeOutPeriodSecs
+
 
 def test_WaitForDFUMode_execute_callsDfuModeStatusRequest_ifNotTimedOut():
     w = WaitForDFUMode()
     w._timeoutExpiry = 2
-    getExpiredTime = lambda :1
+    def getExpiredTime(): return 1
 
     d = MagicMock()
     u = Updater(dfuReader=d, initialState=w, getTimeMS=getExpiredTime)
 
-
     w.execute()
 
     d._requestDfuModeStatus.assert_called_once()
+
 
 def test_WaitForDFUMode_execute_callsDfuModeStatusRequest_ifTimeoutExpiryNotSetYet():
     w = WaitForDFUMode()
     initialExpiry = w._timeoutExpiry
-    getExpiredTime = lambda : initialExpiry + 1
+    def getExpiredTime(): return initialExpiry + 1
 
     d = MagicMock()
     u = Updater(dfuReader=d, initialState=w, getTimeMS=getExpiredTime)
 
-
     w.execute()
     assert w._timeoutExpiry == initialExpiry + 1 + w.TimeoutPeriodSecs
     d._requestDfuModeStatus.assert_called_once()
+
 
 def test_WaitForDFUMode_execute_transitionsToMigrateBytes_ifInDFUMode():
     w = WaitForDFUMode()
@@ -174,7 +180,7 @@ def test_WaitForDFUMode_execute_transitionsToMigrateBytes_ifInDFUMode():
 def test_WaitForDFUMode_execute_migratesToError_ifTimeoutHasExpired():
     w = WaitForDFUMode()
     w._timeoutExpiry = 1
-    getExpiredTime = lambda :2
+    def getExpiredTime(): return 2
 
     u = Updater(initialState=w, getTimeMS=getExpiredTime)
 
@@ -212,6 +218,7 @@ def test_MigrateBytesToFile_enter_populatesProperties():
     assert m._numBytesWritten == 0
     assert m._length == u.SourceLength
 
+
 def test_MigrateBytesToFile_enter_goesToStartOfDFUImage():
     m = MigrateBytesToFile()
 
@@ -244,6 +251,7 @@ def test_MigrateBytesToFile_callsFileOpenerOnStateEntry_callsFileCloserOnStateEx
 
     c.assert_called_once()
 
+
 def test_MigrateBytesToFile_execute_callsDfuReadWriter():
     m = MigrateBytesToFile()
     m._length = 1
@@ -256,6 +264,7 @@ def test_MigrateBytesToFile_execute_callsDfuReadWriter():
     m.execute()
 
     d.read_to_writer.assert_called_once()
+
 
 def test_MigrateBytesToFile_execute_incrementsBytesWritten():
     bytesWritten = 13
@@ -271,6 +280,7 @@ def test_MigrateBytesToFile_execute_incrementsBytesWritten():
     m.execute()
 
     assert m._numBytesWritten == bytesWritten + initialBytesWritten
+
 
 def test_MigrateBytesToFile_execute_allBytesWritten_transitionToExitDFUMode():
     n = 17
@@ -304,7 +314,6 @@ def test_MigrateBytesToFile_execute_allBytesWritten_hashCheckFails_transitionToE
     assert isinstance(u._state, DFUError)
 
 
-
 def test_DFUError_isa_DFUState_class():
     e = DFUError()
     assert isinstance(e, DFUState)
@@ -312,7 +321,7 @@ def test_DFUError_isa_DFUState_class():
 
 def test_DFUError_constructor_sets_properties():
     e = DFUError()
-    assert e.message is ""
+    assert e.message == ""
 
     m = "my error message"
     e = DFUError(m)
@@ -323,12 +332,13 @@ def test_GetDFUInfo_isa_DFUState_class():
     i = GetDFUInfo()
     assert isinstance(i, DFUState)
 
+
 def test_GetDFUInfo_execute_requestsAndStoresDFUInfo():
     sourceName = "abc"
     length = 13
     i = GetDFUInfo()
     d = MagicMock()
-    d.GetInfo.return_value = {"source":sourceName,"length":length}
+    d.GetInfo.return_value = {"source": sourceName, "length": length}
     u = Updater(dfuReader=d, initialState=i)
 
     i.execute()
@@ -336,11 +346,11 @@ def test_GetDFUInfo_execute_requestsAndStoresDFUInfo():
     assert u.SourceName == sourceName
     assert u.SourceLength == length
 
-    
 
 def test_ExitDFUMode_isa_DFUState_class():
     e = ExitDFUMode()
     assert isinstance(e, DFUState)
+
 
 def test_ExitDFUMode_execute_callsDfuModeExitRequest():
     s = ExitDFUMode()
@@ -350,7 +360,7 @@ def test_ExitDFUMode_execute_callsDfuModeExitRequest():
     s.execute()
 
     d._requestDfuModeExit.assert_called_once()
-    
+
 
 def test_ExitDFUMode_execute_transitionsToUntarFile():
     s = ExitDFUMode()
