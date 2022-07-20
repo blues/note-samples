@@ -13,7 +13,7 @@ jobs:
           - "python-dfu"
           - "python-airnote-data-migration"
           - "python-file-downloader/application"
-          # has test errors and a large requirements.txt - "python-remote-commands-attn-rpi"
+          - "python-remote-commands-attn-rpi"
           - "python-route-endpoint"
     steps:
       - uses: actions/checkout@v3
@@ -26,7 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install flake8 pytest
           cd ${{ matrix.sample }}
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-ci.txt ]; then pip install -r requirements-ci.txt; fi
       - name: Lint with flake8
         run: |
           cd ${{ matrix.sample }}
