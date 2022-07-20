@@ -78,19 +78,23 @@ Notecard USB appears as serial port on PC.  You can select USB or UART and get t
    }
 ```
 
-## Application Selection
+## Example Application Selection
+
+Application selection is performed in the `app/main.py` file.  
+
+You can change which version of _main_ is executed by commenting in/out which function should be executed at the end of `app/main.py`
 
 |Main|Description|
 |---|---|
-|main_blocking.py | Executes entire Python firmware update at once|
-|main_background.py | Executes Python firmware update one step at a time|
+|main_blocking | Executes entire Python firmware update at once|
+|main_background | Executes Python firmware update one step at a time|
 
-**main_blocking.py**
+**main_blocking**
 In the main execution loop, if the application detects that a firmware update is available, then it will begin the update process, but will block all other firmware tasks.
 
 This is a faster and arguably simplier way to do the update, but doesn't permit continued application functionality
 
-**main_background.py**
+**main_background**
 In the main execution loop, the application invokes the next step in the firmware update process.  The steps are small, and should not block execution for very long.
 
 Depending on how the timing and priority for this method is implemented, it may take longer for it to execute the entire firmware update than the "blocking" version. But it enables the application to perform it's nominal functionality while firmware updates occur when time and cycles are available.
@@ -99,7 +103,7 @@ Depending on how the timing and priority for this method is implemented, it may 
 
 A `secrets.json` file is used to store application configuration information
 
-Create this file in the same location as `main_*.py`.  
+Create this file in the same location as `main.py`.  
 
 For the Raspberry Pi Pico, you will need to create and copy this file onto the Raspberry Pi Pico
 
@@ -132,28 +136,29 @@ The format of the file is JSON, where the root field names are the configuration
 
 ### Raspberry Pi Pico with Micropython
 
-1. Create a `secrets.json` file in the `src` folder
-2. Copy the entire contents of the `src` folder to the Raspberry Pi Pico (including the `src/lib` folder)
-3. Restart the Pico
-4. Open a serial terminal to monitor output from Pico over USB connection
-5. Restart the Pico to begin execution
+1. Create a `secrets.json` file in the `app` folder
+2. Copy the contents of the `app` folder to the Raspberry Pi Pico
+3. Copy the contents of `lib` folder to `./lib` on the Raspberry Pi Pico
+4. Copy the contents of `dfu` folder to `./lib/dfu` on the Raspberry Pico
+5. Restart the Pico
+6. Open a serial terminal to monitor output from Pico over USB connection
+7. Restart the Pico to begin execution
 
 ### Raspberry Pi or PC with Python 3
 
-1. Add a directory to your computer and copy the contents of `src` (but *not* `src/lib`) into that directory.
-2. Create `secrets.json` file in the newly created directory
-3. Change the current directory to the application directory
-4. Run `pip install -r requirements.txt` to install all of the prerequisites.
-5. Run `chmod a+x main_*.py` to allow `main_*.py` to reload itself after it loads an updated file.
-6. Run `python3 main_*.py`
+1. Clone this repository
+2. Create `secrets.json` file in the `app` folder
+3. Run `pip install -r requirements.txt` to install all of the prerequisites.
+4. Run `chmod a+x app/main.py` to allow `app/main.py` to reload itself after it loads an updated file.
+5. Run `python3 app/main.py`
 
 ## Perform Update
 
-   1. Modify `version.py` to a new version number
+   1. Modify `app/version.py` to a new version number
 
-   2. Generate a TAR-file that includes `version.py`
+   2. Generate a TAR-file that includes `app/version.py`
 
-      A utility script `generateTarFile.sh` can be used to create new TAR-file from the contents of the `src` folder
+      A utility script `generateTarFile.sh` can be used to create new TAR-file from the contents of the `app` folder
 
    3. Upload the TAR-file to your Notehub project using the steps outlined here: <https://dev.blues.io/notehub/notehub-walkthrough/#manage-host-firmware>
 
