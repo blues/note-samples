@@ -8,7 +8,9 @@ import hashlib
 import base64
 import io
 
-import dfu
+#import dfu.dfu as dfu
+import dfu.dfu as dfu
+
 
 from contextlib import AbstractContextManager
 from unittest.mock import Mock, MagicMock, patch
@@ -135,7 +137,7 @@ def test_dfuReader_constructor_with_known_image_info():
     assert isinstance(r._watchDog, dfu.emptyDFUWatchDog)
 
 
-@patch("dfu.getUpdateInfo")
+@patch("dfu.dfu.getUpdateInfo")
 def test_dfuReader_constructor_without_image_info(mock_getInfo):
 
     nCard = Mock()
@@ -189,7 +191,7 @@ def test_dfuReader__enter__returns_self():
 
 
 
-@patch("dfu.exitDFUMode")
+@patch("dfu.dfu.exitDFUMode")
 def test_dfuReader__exit__RequestsDfuModeExit(mock_exitMode):
     r = createReaderWithMockNotecard()
     
@@ -198,7 +200,7 @@ def test_dfuReader__exit__RequestsDfuModeExit(mock_exitMode):
     mock_exitMode.assert_called_once_with(r.NCard)
            
 
-@patch("dfu.exitDFUMode")
+@patch("dfu.dfu.exitDFUMode")
 def test_dfuReader_Close_RequestsDfuModeExit(mock_exitMode):
     r = createReaderWithMockNotecard()
     
@@ -227,7 +229,7 @@ def test_dfuReader_Seek_updatesOffsetProp():
 
 
 
-@patch("dfu._requestDfuChunk")
+@patch("dfu.dfu._requestDfuChunk")
 def test_dfuReader_Read_UpdatesOffsetByLengthOfReadContent(mock_dfuChunk):
     content = b'here is my chunk content'
     mock_dfuChunk.side_effect = generateBinaryPayloadReader(content)
@@ -254,7 +256,7 @@ def test_dfuReader_Read_offsetPointerBeyondContentLength():
 
     assert c == None
 
-@patch("dfu._requestDfuChunk")
+@patch("dfu.dfu._requestDfuChunk")
 def test_dfuReader_Read_sizeBeyondContentLength(mock_dfuChunk):
     mock_dfuChunk.side_effect = generateBinaryPayloadReader(b'aaaaabbbbbbcccccccccccccccccccccccccccccccccc')
 
@@ -267,7 +269,7 @@ def test_dfuReader_Read_sizeBeyondContentLength(mock_dfuChunk):
 
     assert c == b"bbbbbb"
 
-@patch("dfu._requestDfuChunk")
+@patch("dfu.dfu._requestDfuChunk")
 def test_dfuReader_Read_MultipleTimes_readsSubsequentChunks(mock_dfuChunk):
     
     payload1 = b'chunk 1'
@@ -289,7 +291,7 @@ def test_dfuReader_Read_MultipleTimes_readsSubsequentChunks(mock_dfuChunk):
 
 
 
-@patch("dfu._requestDfuChunk")
+@patch("dfu.dfu._requestDfuChunk")
 def test_dfuReader_Read_UpdatesMd5(mock_dfuChunk):
     payload1 = b'chunk 1'
     payload2 = b'chunk 2'
@@ -319,7 +321,7 @@ def test_dfuReader_Read_watchDogNotPatIfNoRead():
 
     w.pat.assert_not_called()
 
-@patch("dfu._requestDfuChunk")
+@patch("dfu.dfu._requestDfuChunk")
 def test_dfuReader_Read_watchDogPatIfReadAttempted(mock_dfuChunk):
 
     payload = b'random payload'
@@ -463,7 +465,7 @@ def test_requestDfuChunk_returnsContent():
     c = dfu._requestDfuChunk(card, 0, len(payload))
     assert c == content
 
-@patch("dfu._requestDfuChunk")
+@patch("dfu.dfu._requestDfuChunk")
 def test_dfuReader_ReadToWriter_CopiesReadContentToWriter(mock_dfuChunk):
     content = b'here is my chunk content'
     mock_dfuChunk.side_effect = generateBinaryPayloadReader(content)
@@ -476,7 +478,7 @@ def test_dfuReader_ReadToWriter_CopiesReadContentToWriter(mock_dfuChunk):
     assert s == len(content)
     assert w.getvalue() == content
 
-@patch("dfu._requestDfuChunk")
+@patch("dfu.dfu._requestDfuChunk")
 def test_dfuReader_ReadToWriter_ReturnsNumBytesWritten(mock_dfuChunk):
     mock_dfuChunk.side_effect = generateBinaryPayloadReader(b'a')
 
@@ -509,7 +511,7 @@ def test_dfuReader_ReadToWriter_tooManyFailedReadsRaisesException():
     assert nc.Transaction.call_count == num_retries
 
 
-@patch("dfu._requestDfuChunk")
+@patch("dfu.dfu._requestDfuChunk")
 def test_dfuReader_ReadToWriter_MultipleTimes_writesSubsequentChunks(mock_dfuChunk):
     
     payload1 = b'chunk 1'
@@ -834,7 +836,7 @@ def test_disableUpdate_NotecardReturnsErrorRaiseException():
         dfu.disableUpdate(nCard)
 
 
-# @patch("dfu.enterDFUMode")
+# @patch("dfu.dfu.enterDFUMode")
 # def test_open_requestsDfuStatus(mock_enter):
     
 
@@ -881,7 +883,7 @@ def test_isDFUModeActive_returnsTrueIfNoErrInResponse():
 
     assert success
 
-@patch("dfu.isDFUModeActive")
+@patch("dfu.dfu.isDFUModeActive")
 def test_waitForDFUMode_returnsIfInDFUMode(mock_isactive):
     mock_isactive.return_value = True
 
@@ -889,7 +891,7 @@ def test_waitForDFUMode_returnsIfInDFUMode(mock_isactive):
     dfu.waitForDFUMode(nCard)
 
 
-@patch("dfu.isDFUModeActive")
+@patch("dfu.dfu.isDFUModeActive")
 def test_waitForDFUMode_raisesExceptionOnTimeout(mock_isactive):
     mock_isactive.return_value = False
 
@@ -901,7 +903,7 @@ def test_waitForDFUMode_raisesExceptionOnTimeout(mock_isactive):
         dfu.waitForDFUMode(nCard, timeoutMS = 7, getTimeMS = t, sleepMS = MagicMock())
 
 
-@patch("dfu.isDFUModeActive")
+@patch("dfu.dfu.isDFUModeActive")
 def test_waitForDFUMode_calls_sleep_function(mock_isactive):
     mock_isactive.side_effect = [False, True]
 
@@ -916,8 +918,8 @@ def test_waitForDFUMode_calls_sleep_function(mock_isactive):
 
     s.assert_called_once_with(sleepPeriod)
 
-@patch("dfu.sleep")
-@patch("dfu.isDFUModeActive")
+@patch("dfu.dfu.sleep")
+@patch("dfu.dfu.isDFUModeActive")
 def test_waitForDFUMode_calls_default_sleep_function(mock_isactive, mock_sleep):
     mock_isactive.side_effect = [False, True]
 
@@ -935,8 +937,8 @@ def test_waitForDFUMode_calls_default_sleep_function(mock_isactive, mock_sleep):
 
 
 
-@patch("dfu.isDFUModeActive")
-@patch("dfu.getUpdateInfo")
+@patch("dfu.dfu.isDFUModeActive")
+@patch("dfu.dfu.getUpdateInfo")
 def test_open_requestsDfuMode(mock_getInfo, mock_isactive):
     mock_isactive.return_value = True
     mock_getInfo.return_value = {"length": 7}
@@ -953,8 +955,8 @@ def test_open_requestsDfuMode(mock_getInfo, mock_isactive):
 
 
 
-@patch("dfu.isDFUModeActive")
-@patch("dfu.getUpdateInfo")
+@patch("dfu.dfu.isDFUModeActive")
+@patch("dfu.dfu.getUpdateInfo")
 def test_open_returnsDFUReader(mock_getInfo, mock_isactive):
     mock_getInfo.return_value = {"length":0}
     mock_isactive.return_value = True
@@ -970,8 +972,8 @@ def test_open_returnsDFUReader(mock_getInfo, mock_isactive):
 
     
 
-@patch("dfu._requestDfuChunk")
-@patch("dfu.open")
+@patch("dfu.dfu._requestDfuChunk")
+@patch("dfu.dfu.open")
 def test_copyImageToWriter_populatesWriterWithContent(mock_open, mock_dfuChunk):
 
     payload = b'chunk 1'
@@ -1000,7 +1002,7 @@ def test_dfuReader_readToWriter_readsNoContent():
     assert n == 0
     assert writer.write.call_count == 0
 
-@patch("dfu.open")
+@patch("dfu.dfu.open")
 def test_copyImageToWriter_throwsErr_closesDfu(mock_open):
     r = dfu.dfuReader(MagicMock(), info={"length":0})
     r.read_to_writer = MagicMock(side_effect = Exception("error occurred"))
@@ -1016,7 +1018,7 @@ def test_copyImageToWriter_throwsErr_closesDfu(mock_open):
     r.close.assert_called()
 
 
-@patch("dfu.open")
+@patch("dfu.dfu.open")
 def test_copyImageToWriter_throwsErrOnHashMismatch(mock_open):
     r = dfu.dfuReader(MagicMock(), info={"length":1})
     r.read_to_writer = MagicMock(return_value=0)
@@ -1032,7 +1034,7 @@ def test_copyImageToWriter_throwsErrOnHashMismatch(mock_open):
     r.read_to_writer.assert_called()
     r.close.assert_called()
 
-@patch("dfu.open")
+@patch("dfu.dfu.open")
 def test_copyImageToWriter_callsProgressUpdaterWithPercentCompletion(mock_open):
     totalLength = 4
     readLength = 1
@@ -1052,8 +1054,8 @@ def test_copyImageToWriter_callsProgressUpdaterWithPercentCompletion(mock_open):
 
 
 
-@patch("dfu.open")
-@patch("dfu.isWatchdogRequired")
+@patch("dfu.dfu.open")
+@patch("dfu.dfu.isWatchdogRequired")
 def test_copyImageToWriter_applysWatchDogIfRequired(mock_isRequired, mock_open):
     mock_isRequired.return_value = True
 
@@ -1075,8 +1077,8 @@ def test_copyImageToWriter_applysWatchDogIfRequired(mock_isRequired, mock_open):
     r.useWatchdog.assert_called_once_with()
 
 
-@patch("dfu.open")
-@patch("dfu.isWatchdogRequired")
+@patch("dfu.dfu.open")
+@patch("dfu.dfu.isWatchdogRequired")
 def test_copyImageToWriter_doesNotApplysWatchDogIfNotRequired(mock_isRequired, mock_open):
     mock_isRequired.return_value = False
 

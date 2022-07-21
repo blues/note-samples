@@ -6,7 +6,7 @@ import sys
 sys.path.append("..")
 
 
-import utarfile as utar
+import utarfile.utarfile as utar
 
 import io
 

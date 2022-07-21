@@ -137,12 +137,14 @@ The format of the file is JSON, where the root field names are the configuration
 ### Raspberry Pi Pico with Micropython
 
 1. Create a `secrets.json` file in the `app` folder
-2. Copy the contents of the `app` folder to the Raspberry Pi Pico
+2. Copy the contents of the `app` folder root to the Raspberry Pi Pico
 3. Copy the contents of `lib` folder to `./lib` on the Raspberry Pi Pico
-4. Copy the contents of `dfu` folder to `./lib/dfu` on the Raspberry Pico
-5. Restart the Pico
-6. Open a serial terminal to monitor output from Pico over USB connection
-7. Restart the Pico to begin execution
+4. Copy the contents of `note-python/notecard` to `./lib/notecard` on the Raspberry Pi Pico
+5. Copy the contents of `dfu` folder to `./lib/dfu` on the Raspberry Pico
+6. Copy the contents of `utarfile` folder to `./lib/utarfile` on the Raspberry Pi Pico
+7. Restart the Pico
+8. Open a serial terminal to monitor output from Pico over USB connection
+9. Restart the Pico to begin execution
 
 ### Raspberry Pi or PC with Python 3
 
@@ -150,7 +152,8 @@ The format of the file is JSON, where the root field names are the configuration
 2. Create `secrets.json` file in the `app` folder
 3. Run `pip install -r requirements.txt` to install all of the prerequisites.
 4. Run `chmod a+x app/main.py` to allow `app/main.py` to reload itself after it loads an updated file.
-5. Run `python3 app/main.py`
+5. Add the root directory to the PYTHONPATH environment variable
+6. Run `python3 app/main.py`
 
 ## Perform Update
 

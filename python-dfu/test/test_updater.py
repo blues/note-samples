@@ -1,10 +1,10 @@
 from logging.handlers import DEFAULT_UDP_LOGGING_PORT
 from multiprocessing import context
-from turtle import up
-from unittest.mock import patch, mock_open, MagicMock
+#from turtle import up
+from unittest.mock import patch, MagicMock
 import pytest
 
-from updater import Updater, DFUState, CheckForUpdate, CheckWatchdogRequirement, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, Install, Restart, DFUError
+from dfu.updater import Updater, DFUState, CheckForUpdate, CheckWatchdogRequirement, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, Install, Restart, DFUError
 
 
 def test_Updater_constructor_set_properties():
@@ -175,7 +175,7 @@ def test_CheckForUpdate_is_a_DFUState_class():
     s = CheckForUpdate()
     assert isinstance(s, DFUState)
 
-@patch("dfu.isUpdateAvailable")
+@patch("dfu.dfu.isUpdateAvailable")
 def test_CheckForUpdate_execute_callsDFUReader_IsUpdateAvailable(mock_isAvailable):
     s = CheckForUpdate()
     card = MagicMock()
@@ -198,7 +198,7 @@ def test_CheckForUpdate_execute_noUpdate_doesNotTransitionStates():
 
     assert u._state == s
 
-@patch("dfu.isUpdateAvailable")
+@patch("dfu.dfu.isUpdateAvailable")
 def test_CheckForUpdate_execute_hasUpdate_transitionsToGetInfo(mock_isAvailable):
     s = CheckForUpdate()
     mock_isAvailable.return_value = True
@@ -210,7 +210,7 @@ def test_CheckForUpdate_execute_hasUpdate_transitionsToGetInfo(mock_isAvailable)
     assert isinstance(u._state, GetDFUInfo)
 
 
-@patch("dfu.isUpdateAvailable")
+@patch("dfu.dfu.isUpdateAvailable")
 def test_CheckForUpdate_execute_hasUpdate_transitionsTo_CheckWatchdogRequirement_if_watchdog_not_suppressed(mock_isAvailable):
     s = CheckForUpdate()
     mock_isAvailable.return_value = True
@@ -250,7 +250,7 @@ def test_CheckWatchdogRequirement_enter_still_in_CheckWatchdogRequirement_if_wat
     assert isinstance(u._state, CheckWatchdogRequirement)
 
 
-@patch("dfu.isWatchdogRequired")
+@patch("dfu.dfu.isWatchdogRequired")
 def test_CheckWatchdogRequirement_execute_setsUpdaterUseWatchdogFlag(mock_isRequired):
 
     mock_isRequired.return_value = True
@@ -271,7 +271,7 @@ def test_CheckWatchdogRequirement_execute_setsUpdaterUseWatchdogFlag(mock_isRequ
     assert u._useWatchdog == False
 
 
-@patch("dfu.isWatchdogRequired")
+@patch("dfu.dfu.isWatchdogRequired")
 def test_CheckWatchdogRequirement_execute_transitions_to_GETDFUINFO(mock_isRequired):
 
     mock_isRequired.return_value = False
@@ -289,7 +289,7 @@ def test_EnterDFUMode_is_a_DFUState_class():
     s = EnterDFUMode()
     assert isinstance(s, DFUState)
 
-@patch("dfu.enterDFUMode")
+@patch("dfu.dfu.enterDFUMode")
 def test_EnterDFUMode_execute_callsDfuModeEntryRequest_transitionsToWaitForDFUMode(mock_enterDFU):
     s = EnterDFUMode()
     card = MagicMock()
@@ -311,7 +311,7 @@ def test_WaitForDFUMode_constructor_sets_properties():
 
     assert w.TimeoutPeriodSecs == timeOutPeriodSecs
 
-@patch("dfu.isDFUModeActive")
+@patch("dfu.dfu.isDFUModeActive")
 def test_WaitForDFUMode_execute_callsDfuModeStatusRequest_ifNotTimedOut(mock_isActive):
     mock_isActive.return_value = False
     w = WaitForDFUMode()
@@ -553,7 +553,7 @@ def test_DFUError_enter_sets_updater_InProgress_to_False():
 
     assert u.InProgress == False
 
-@patch("dfu.exitDFUMode")
+@patch("dfu.dfu.exitDFUMode")
 def test_DFUError_execute_exits_DFUMode(mock_exit):
     card = MagicMock()
     u = Updater(card)
@@ -566,8 +566,8 @@ def test_DFUError_execute_exits_DFUMode(mock_exit):
     mock_exit.assert_called_once_with(card)
 
 
-@patch("dfu.setUpdateError")
-@patch("dfu.exitDFUMode")
+@patch("dfu.dfu.setUpdateError")
+@patch("dfu.dfu.exitDFUMode")
 def test_DFUError_marksDFUAsFailed_if_discardImage_set(mock_exit, mock_setError):
     card = MagicMock()
     u = Updater(card)
@@ -581,8 +581,8 @@ def test_DFUError_marksDFUAsFailed_if_discardImage_set(mock_exit, mock_setError)
     mock_exit.assert_called_once_with(card)
     mock_setError.assert_called_once_with(card, m)
 
-@patch("dfu.setUpdateError")
-@patch("dfu.exitDFUMode")
+@patch("dfu.dfu.setUpdateError")
+@patch("dfu.dfu.exitDFUMode")
 def test_DFUError_doesNoteMarksDFUAsFailed_if_discardImage_set_false(mock_exit, mock_setError):
     card = MagicMock()
     u = Updater(card)
@@ -596,7 +596,7 @@ def test_DFUError_doesNoteMarksDFUAsFailed_if_discardImage_set_false(mock_exit, 
     mock_exit.assert_called_once_with(card)
     mock_setError.assert_not_called()
 
-@patch("dfu.exitDFUMode")
+@patch("dfu.dfu.exitDFUMode")
 def test_DFUError_transitions_to_CheckForUpdate(mock_exit):
     card = MagicMock()
 
@@ -612,7 +612,7 @@ def test_GetDFUInfo_isa_DFUState_class():
     i = GetDFUInfo()
     assert isinstance(i, DFUState)
 
-@patch("dfu.getUpdateInfo")
+@patch("dfu.dfu.getUpdateInfo")
 def test_GetDFUInfo_execute_requestsAndStoresDFUInfo(mock_getInfo):
     sourceName = "abc"
     length = 13
@@ -631,7 +631,7 @@ def test_GetDFUInfo_execute_requestsAndStoresDFUInfo(mock_getInfo):
     assert u.SourceLength == length
     assert u.SourceHash == md5
 
-@patch("dfu.getUpdateInfo")
+@patch("dfu.dfu.getUpdateInfo")
 def test_GetDFUInfo_execute_transitions_to_EnterDFUMode(mock_getInfo):
     r = MagicMock()
     mock_getInfo.return_value = {"source":"filename","length":7,"md5":"fake-hash-value"}
@@ -648,7 +648,7 @@ def test_ExitDFUMode_isa_DFUState_class():
     e = ExitDFUMode()
     assert isinstance(e, DFUState)
 
-@patch("dfu.exitDFUMode")
+@patch("dfu.dfu.exitDFUMode")
 def test_ExitDFUMode_execute_callsDfuModeExitRequest(mock_exitDFU):
     s = ExitDFUMode()
     card = MagicMock()
@@ -734,7 +734,7 @@ def test_Install_isa_DFUState_class():
     assert isinstance(s, DFUState)
 
 
-@patch("dfu.setUpdateDone")
+@patch("dfu.dfu.setUpdateDone")
 def test_Install_execute_transitionsTo_Restart(mock_setDone):
     s = Install()
     u = Updater(MagicMock(),initialState=s)
@@ -742,7 +742,7 @@ def test_Install_execute_transitionsTo_Restart(mock_setDone):
 
     assert isinstance(u._state, Restart)
 
-@patch("dfu.setUpdateDone")
+@patch("dfu.dfu.setUpdateDone")
 def test_Install_exit_setsDfuProcessToDone(mock_setDone):
     card = MagicMock()
     u = Updater(card)
