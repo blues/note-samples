@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from mimetypes import init
-from utarfile.utarfile import TarExtractor
-from dfu import dfu
+from utarfile import TarExtractor
+import dfu
 
 
 DEFAULT_DFU_MODE_ENTRY_TIMEOUT_SECS = 120
