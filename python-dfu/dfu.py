@@ -2,6 +2,7 @@ from time import time, sleep
 import binascii
 import hashlib
 
+
 class dfuReader:
     OpenTimeoutSec = 120
     DFUModeResetPeriodSec = 240
@@ -27,17 +28,14 @@ class dfuReader:
 
         self._dfuModeResetExpiry = self._getTimeSec() + self.DFUModeResetPeriodSec
 
-
         info = self.GetInfo()
         self._length = info["length"]
-        self._imageHash = info.get("md5",None)
-
+        self._imageHash = info.get("md5", None)
 
         self._md5 = hashlib.md5()
 
         self.seek(0)
 
-        
     def Close(self):
         self._requestDfuModeExit()
 
@@ -58,7 +56,7 @@ class dfuReader:
 
         if self._offset + size > self._length:
             size = self._length - self._offset
-        
+
         if size <= 0:
             return None
 
@@ -72,16 +70,15 @@ class dfuReader:
             except Exception as e:
                 requestException = e
 
-        if requestException != None:
-            raise Exception(f"Failed to read content after {num_retries} retries") from requestException
+        if requestException is not None:
+            raise Exception(
+                f"Failed to read content after {num_retries} retries") from requestException
 
         self._md5.update(c)
         self._offset += size
         return c
-    
-        
 
-    def read_to_writer(self, writer, size = 4096, num_retries=5):
+    def read_to_writer(self, writer, size=4096, num_retries=5):
 
         c = self.read(size=size, num_retries=num_retries)
         if c == None:
@@ -89,7 +86,7 @@ class dfuReader:
 
         length = writer.write(c)
         return length
-    
+
     def GetInfo(self):
         return getUpdateInfo(self.NCard)
 
@@ -103,28 +100,28 @@ class dfuReader:
         return (self.get_hash() == self._imageHash)
 
     def _requestDfuModeEntry(self):
-        rsp = self.NCard.Transaction({"req":"hub.set","mode":"dfu"})
+        rsp = self.NCard.Transaction({"req": "hub.set", "mode": "dfu"})
         if "err" in rsp:
-            raise Exception(f"Notecard request for DFU mode entry failed: {rsp['err']}")
-
+            raise Exception(
+                f"Notecard request for DFU mode entry failed: {rsp['err']}")
 
     def _requestDfuModeExit(self):
-        rsp = self.NCard.Transaction({"req":"hub.set","mode":"dfu-completed"})
+        rsp = self.NCard.Transaction(
+            {"req": "hub.set", "mode": "dfu-completed"})
         if "err" in rsp:
-            raise Exception(f"Notecard request for DFU mode exit failed: {rsp['err']}")
+            raise Exception(
+                f"Notecard request for DFU mode exit failed: {rsp['err']}")
 
     def _requestDfuModeStatus(self):
-        r = self.NCard.Transaction({"req":"dfu.get"})
+        r = self.NCard.Transaction({"req": "dfu.get"})
         if "err" not in r:
             return True
         return False
 
+    def _waitForDfuMode(self):
 
-
-    def _waitForDfuMode(self ):
-        
         timeout_sec = self.OpenTimeoutSec
-        
+
         expiry = self._getTimeSec() + timeout_sec
         while self._getTimeSec() < expiry:
             if self._requestDfuModeStatus():
@@ -135,7 +132,7 @@ class dfuReader:
 
     def _requestDfuChunk(self, start, length):
 
-        req = {"req":"dfu.get","offset":start,"length":length}
+        req = {"req": "dfu.get", "offset": start, "length": length}
         rsp = self.NCard.Transaction(req)
 
         if "err" in rsp:
@@ -143,32 +140,35 @@ class dfuReader:
             raise Exception(m)
 
         if "payload" not in rsp:
-            raise Exception(f"No content available at {start} with length {length}")
+            raise Exception(
+                f"No content available at {start} with length {length}")
 
         content = binascii.a2b_base64(rsp["payload"])
 
         expectedMD5 = rsp["status"]
         md5 = hashlib.md5(content).hexdigest()
         if md5 != expectedMD5:
-            raise Exception ("content checksum mismatch")
+            raise Exception("content checksum mismatch")
 
         return content
+
 
 def _cardTransactionFailsOnNotecardErrorMessage(card, req):
 
     rsp = card.Transaction(req)
-    
+
     if "err" in rsp:
         raise Exception(f'Notecard returned error: {rsp["err"]}')
 
     return rsp
 
 
-    
 DFU_MODE_QUERY_RETRY_SEC = 2.5
 
+
 def isUpdateAvailable(card):
-    r = _cardTransactionFailsOnNotecardErrorMessage(card, {"req":"dfu.status"})
+    r = _cardTransactionFailsOnNotecardErrorMessage(
+        card, {"req": "dfu.status"})
 
     if "mode" not in r:
         return False
@@ -176,9 +176,11 @@ def isUpdateAvailable(card):
     isAvailable = r["mode"] == "ready"
     return isAvailable
 
+
 def getUpdateInfo(card):
 
-    r = _cardTransactionFailsOnNotecardErrorMessage(card,{"req":"dfu.status"})
+    r = _cardTransactionFailsOnNotecardErrorMessage(
+        card, {"req": "dfu.status"})
 
     if "mode" not in r:
         return None
@@ -188,37 +190,41 @@ def getUpdateInfo(card):
 
     return r["body"]
 
+
 def setUpdateDone(card, message):
-    req = {"req":"dfu.status",
-          "stop": True,
-          "status":message}
-    _cardTransactionFailsOnNotecardErrorMessage(card,req)
+    req = {"req": "dfu.status",
+           "stop": True,
+           "status": message}
+    _cardTransactionFailsOnNotecardErrorMessage(card, req)
+
 
 def setUpdateError(card, message):
-    req = {"req":"dfu.status",
-          "stop": True,
-          "err":message,
-          "status":message}
-    _cardTransactionFailsOnNotecardErrorMessage(card,req)
+    req = {"req": "dfu.status",
+           "stop": True,
+           "err": message,
+           "status": message}
+    _cardTransactionFailsOnNotecardErrorMessage(card, req)
+
 
 def enableUpdate(card):
-    _cardTransactionFailsOnNotecardErrorMessage(card, 
-                    {"req":"dfu.status","on": True})
+    _cardTransactionFailsOnNotecardErrorMessage(card,
+                                                {"req": "dfu.status", "on": True})
 
 
 def disableUpdate(card):
-    _cardTransactionFailsOnNotecardErrorMessage(card, 
-                    {"req":"dfu.status","off":True})
+    _cardTransactionFailsOnNotecardErrorMessage(card,
+                                                {"req": "dfu.status", "off": True})
+
 
 def setVersion(card, version):
     _cardTransactionFailsOnNotecardErrorMessage(card,
-                    {"req":"dfu.status","version":version})
+                                                {"req": "dfu.status", "version": version})
 
 
 class _dfuReader_ContextManager(object):
     def __init__(self, reader):
         self.reader = reader
-    
+
     def __enter__(self):
         self.reader.Open()
         return self.reader
@@ -226,14 +232,15 @@ class _dfuReader_ContextManager(object):
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.reader.Close()
 
+
 def openDfuForRead(card, reader=None):
-    if reader==None:
+    if reader == None:
         reader = dfuReader(card)
-    
+
     return _dfuReader_ContextManager(reader)
 
 
-def copyImageToWriter(card, writer, size=4096, reader=None,progressUpdater=lambda m:None):
+def copyImageToWriter(card, writer, size=4096, reader=None, progressUpdater=lambda m: None):
 
     with openDfuForRead(card, reader=reader) as r:
         numBytesWritten = 1
@@ -241,11 +248,9 @@ def copyImageToWriter(card, writer, size=4096, reader=None,progressUpdater=lambd
         n = r._length
         r.seek(0)
         while numBytesWritten > 0:
-            numBytesWritten = r.read_to_writer(writer,size=size)
+            numBytesWritten = r.read_to_writer(writer, size=size)
             totalBytesWritten += numBytesWritten
             progressUpdater(int(totalBytesWritten * 100 / n))
 
         if not r.check_hash():
             raise Exception('Image hash mismatch')
-
-
