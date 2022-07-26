@@ -8,6 +8,8 @@ import hashlib
 import base64
 import io
 
+sys.path.append("src")
+
 #import dfu.dfu as dfu
 import dfu.dfu as dfu
 

@@ -3,7 +3,7 @@ from typing import Iterable
 import unittest
 from unittest.mock import patch, mock_open, MagicMock
 import sys
-sys.path.append("..")
+sys.path.append("src")
 
 
 import utarfile.utarfile as utar

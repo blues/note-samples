@@ -3,6 +3,9 @@ from multiprocessing import context
 #from turtle import up
 from unittest.mock import patch, MagicMock
 import pytest
+import sys
+
+sys.path.append("src")
 
 from dfu.updater import Updater, DFUState, CheckForUpdate, CheckWatchdogRequirement, GetDFUInfo, EnterDFUMode, ExitDFUMode, WaitForDFUMode, MigrateBytesToFile, UntarFile, Install, Restart, DFUError
 

@@ -1,10 +1,14 @@
 
+import sys
+if sys.implementation.name == 'cpython':
+    sys.path.append("src")
 
 import notecard
 import config
 from dfu.updater import Updater
 import dfu.dfu
 import version
+import time
 
 
 """note-python MicroPython example.
@@ -12,8 +16,8 @@ import version
 This file contains a complete working sample for using the note-python
 library on a MicroPython device.
 """
-import sys
-import time
+
+
 
 
 

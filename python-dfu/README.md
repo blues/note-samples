@@ -42,7 +42,7 @@ This sample shows how to use the Notecard to update a Python application.
 
 *Default configuration is for use with [Notecarrier PI][notecarrier-pi-kit] mounted on a Raspberry Pi 4
 
-_Example Configuration_
+*Example Configuration*
 
 ```json
    // secrets.json
@@ -82,7 +82,7 @@ Notecard USB appears as serial port on PC.  You can select USB or UART and get t
 
 Application selection is performed in the `app/main.py` file.  
 
-You can change which version of _main_ is executed by commenting in/out which function should be executed at the end of `app/main.py`
+You can change which version of *main* is executed by commenting in/out which function should be executed at the end of `app/main.py`
 
 |Main|Description|
 |---|---|
@@ -92,7 +92,7 @@ You can change which version of _main_ is executed by commenting in/out which fu
 **main_blocking**
 In the main execution loop, if the application detects that a firmware update is available, then it will begin the update process, but will block all other firmware tasks.
 
-This is a faster and arguably simplier way to do the update, but doesn't permit continued application functionality
+This is a faster and arguably simpler way to do the update, but doesn't permit the application to perform other tasks.
 
 **main_background**
 In the main execution loop, the application invokes the next step in the firmware update process.  The steps are small, and should not block execution for very long.
@@ -136,24 +136,28 @@ The format of the file is JSON, where the root field names are the configuration
 
 ### Raspberry Pi Pico with Micropython
 
-1. Create a `secrets.json` file in the `app` folder
-2. Copy the contents of the `app` folder root to the Raspberry Pi Pico
-3. Copy the contents of `lib` folder to `./lib` on the Raspberry Pi Pico
-4. Copy the contents of `note-python/notecard` to `./lib/notecard` on the Raspberry Pi Pico
-5. Copy the contents of `dfu` folder to `./lib/dfu` on the Raspberry Pico
-6. Copy the contents of `utarfile` folder to `./lib/utarfile` on the Raspberry Pi Pico
-7. Restart the Pico
-8. Open a serial terminal to monitor output from Pico over USB connection
-9. Restart the Pico to begin execution
+1. Create a `secrets.json` file in the root folder
+2. Execute `deploy-micropy.cmd` **OR**
+   Copy the following to the Raspberry Pi Pico
+   |Source|Destination|
+   |---|---|
+   |`secrets.json`|`./secrets.json`|
+   |`app`|`./`|
+   |`lib`|`./lib`|
+   |`src/dfu`|`./dfu`|
+   |`src/utarfile`|`./utarfile`|
+
+3. Restart the Pico
+4.  Open a serial terminal to monitor output from Pico over USB connection
+5.  Restart the Pico to begin execution
 
 ### Raspberry Pi or PC with Python 3
 
 1. Clone this repository
-2. Create `secrets.json` file in the `app` folder
+2. Create `secrets.json` file in the root folder
 3. Run `pip install -r requirements.txt` to install all of the prerequisites.
 4. Run `chmod a+x app/main.py` to allow `app/main.py` to reload itself after it loads an updated file.
-5. Add the root directory to the PYTHONPATH environment variable
-6. Run `python3 app/main.py`
+5. Run `python3 app/main.py`
 
 ## Perform Update
 
