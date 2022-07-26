@@ -145,7 +145,8 @@ class dfuWatchDog(emptyDFUWatchDog):
         enterDFUMode(self.card)
 
 def isWatchdogRequired(card):
-    versionInfo = card.version()
+    req = {"req":"card.version"}
+    versionInfo = card.Transaction(req)
 
     major = versionInfo["body"]["ver_major"]
     minor = versionInfo["body"]["ver_minor"]

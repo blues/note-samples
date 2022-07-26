@@ -1174,7 +1174,7 @@ def test_isWatchdogRequired():
 
     def setVersion(major, minor, patch, build=0):
 
-        card.version.return_value = {"body":{
+        card.Transaction.return_value = {"body":{
             "version":f"notecard-{major}.{minor}.{patch}",
             "ver_major": major,
             "ver_minor": minor,

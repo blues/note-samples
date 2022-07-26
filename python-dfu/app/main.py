@@ -5,20 +5,10 @@ if sys.implementation.name == 'cpython':
 
 import notecard
 import config
-from dfu.updater import Updater
-import dfu.dfu
+from updater import Updater
+import dfu
 import version
 import time
-
-
-"""note-python MicroPython example.
-
-This file contains a complete working sample for using the note-python
-library on a MicroPython device.
-"""
-
-
-
 
 
     
@@ -116,12 +106,7 @@ def NotecardExceptionInfo(exception):
 
 
 def configure_notecard(card, appConfig):
-    """Submit a simple JSON-based request to the Notecard.
-
-    Args:
-        card (object): An instance of the Notecard class
-
-    """
+    
     req = {"req": "hub.set"}
     req["product"] = appConfig.ProductUID
     req["mode"] = "continuous"
@@ -161,7 +146,7 @@ def main():
     
     print(f"Version: {version.versionStr}")
 
-    dfu.dfu.setVersion(card, version.versionStr)
+    dfu.setVersion(card, version.versionStr)
     
     configure_notecard(card, appConfig)
 
