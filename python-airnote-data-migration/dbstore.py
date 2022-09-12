@@ -1,3 +1,4 @@
+from datetime import datetime
 import sqlite3
 
 class dbstore():
@@ -25,15 +26,15 @@ class dbstore():
         return devices
 
 
-    def addMeasurement(self, deviceId, timestamp, data, location, eventId):
-        if location == None:
-            location = {}
+    def addMeasurement(self, deviceId, timestamp, data, latitude, longitude, eventId):
 
+        ts = datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')
+        
         d = (eventId, 
              deviceId, 
-             timestamp, 
-             location.get('latitude'),
-             location.get('longitude'),
+             ts, 
+             latitude,
+             longitude,
              data.get('c00_30'),
              data.get('c00_50'),
              data.get('c01_00'),

@@ -166,7 +166,8 @@ measurementTestData = {
 locationTestData = {"latitude": 42.381712500000006,
         "longitude": -72.536109375}
 
-timestampTestData = "2021-04-29T23:25:44Z"
+timestampTestData = 1577841940
+tsTestData = '2020-01-01 01:25:40.000000'
 
 def test_addMeasurement():
     s = dbstore.dbstore(file=getDbFile())
@@ -178,14 +179,14 @@ def test_addMeasurement():
 
     data = measurementTestData
 
-    s.addMeasurement(deviceId, timestamp, data, location, eventUid)
+    s.addMeasurement(deviceId, timestamp, data, location["latitude"], location["longitude"], eventUid)
 
     c = s._cursor.execute('SELECT * from airdata')
     row = c.fetchone()
 
     assert row[0]  == eventUid
     assert row[1]  == deviceId
-    assert row[2]  == timestamp
+    assert row[2]  == tsTestData
     assert row[3]  == location["latitude"]
     assert row[4]  == location["longitude"]
     assert row[5]  == data["c00_30"]
@@ -220,7 +221,7 @@ def test_addMeasurement_sameEventMultipleTimes():
 
     data = {"temperature":13.0}
 
-    s.addMeasurement(deviceId, timestamp, data, location, eventUid)
+    s.addMeasurement(deviceId, timestamp, data, location["latitude"], location["longitude"], eventUid)
 
     c = s._cursor.execute('SELECT * from airdata')
     row = c.fetchone()
@@ -230,7 +231,7 @@ def test_addMeasurement_sameEventMultipleTimes():
 
     data = {"temperature":17.0}
     deviceId = "dev:yyyyyyyyyyyyy"
-    s.addMeasurement(deviceId, timestamp, data, location, eventUid)
+    s.addMeasurement(deviceId, timestamp, data, location["latitude"], location["longitude"], eventUid)
 
     c = s._cursor.execute('SELECT COUNT(*) from airdata')
     numEntries = c.fetchone()[0]
@@ -247,9 +248,9 @@ def test_getLastEventId():
     s = dbstore.dbstore(file=getDbFile())
     deviceId = "dev:xxxxxxxxxxxx"
     eventUid = "fegh"
-    s.addMeasurement(deviceId, None, {}, {}, 'abcdefg')
-    s.addMeasurement(deviceId, None, {}, {}, eventUid)
-    s.addMeasurement('dev:yyyyyyyyyyyyy', None, {}, {}, 'qrtstuv')
+    s.addMeasurement(deviceId, timestampTestData, {}, None, None, 'abcdefg')
+    s.addMeasurement(deviceId, timestampTestData, {}, None, None, eventUid)
+    s.addMeasurement('dev:yyyyyyyyyyyyy', timestampTestData, {}, None, None, 'qrtstuv')
 
     lastUid = s.getLastEventId(deviceId)
 
@@ -261,7 +262,7 @@ def test_getLastEventId_noDevice():
     s = dbstore.dbstore(file=getDbFile())
     deviceId = "dev:xxxxxxxxxxxx"
     eventUid = "fegh"
-    s.addMeasurement(deviceId, None, {}, {}, eventUid)
+    s.addMeasurement(deviceId, timestampTestData, {}, None, None, eventUid)
 
     lastUid = s.getLastEventId(deviceId+'y')
 
@@ -273,13 +274,12 @@ def test_addMeasurement_noLocation():
     s = dbstore.dbstore(file=getDbFile())
 
     deviceId = "dev:xxxxxxxxxxxx"
-    location = {}
     timestamp = timestampTestData
     eventUid = "ee0f7c1b-754c-4a4b-84fe-07cf3d96ec53"
 
     data = measurementTestData
 
-    s.addMeasurement(deviceId, timestamp, data, location, eventUid)
+    s.addMeasurement(deviceId, timestamp, data, None, None, eventUid)
     c = s._cursor.execute('SELECT latitude,longitude from airdata')
     row = c.fetchone()
 
@@ -289,13 +289,12 @@ def test_addMeasurement_LocationIsNone():
     s = dbstore.dbstore(file=getDbFile())
 
     deviceId = "dev:xxxxxxxxxxxx"
-    location = None
     timestamp = timestampTestData
     eventUid = "ee0f7c1b-754c-4a4b-84fe-07cf3d96ec53"
 
     data = measurementTestData
 
-    s.addMeasurement(deviceId, timestamp, data, location, eventUid)
+    s.addMeasurement(deviceId, timestamp, data, None, None, eventUid)
     c = s._cursor.execute('SELECT latitude,longitude from airdata')
     row = c.fetchone()
 
@@ -315,7 +314,7 @@ def test_exportToCsv():
 
     data = measurementTestData
 
-    s.addMeasurement(deviceId, timestamp, data, location, eventUid)
+    s.addMeasurement(deviceId, timestamp, data, location["latitude"], location["longitude"], eventUid)
     with temporary_filename() as f:
         s.exportToCsv(f,deviceId=deviceId)
         
@@ -364,9 +363,9 @@ def test_exportToCsv_noDeviceId():
     eventUid2 = "ee0f7c1b-754c-4a4b-84fe-07cf3d96ec54"
 
     data = measurementTestData
-
-    s.addMeasurement(deviceId1, timestamp, data, location, eventUid1)
-    s.addMeasurement(deviceId2, timestamp, data, location, eventUid2)
+    
+    s.addMeasurement(deviceId1, timestamp, data, location["latitude"], location["longitude"], eventUid1)
+    s.addMeasurement(deviceId2, timestamp, data, location["latitude"], location["longitude"], eventUid2)
     with temporary_filename() as f:
         s.exportToCsv(f,deviceId=None)
         

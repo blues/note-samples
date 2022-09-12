@@ -179,25 +179,18 @@ def test_migrateAirnoteData_maxCalls():
 
 
 singleEvent = '''{
-                "uid": "49b8fcf4-c439-4177-a5a4-39bbe3ded4a9",
-                "device_uid": "dev:864475044207255",
+                "event": "49b8fcf4-c439-4177-a5a4-39bbe3ded4a9",
+                "device": "dev:864475044207255",
                 "file": "_air.qo",
-                "captured": "2020-01-01T01:25:40Z",
-                "received": "2021-04-08T06:23:41Z",
+                "when": 1577841940,
                 "body": {
                     "csecs": 484,
                     "sensor": "lnd712",
                     "temperature": 0.01,
                     "voltage": 3.9785156
                 },
-                "gps_location": {
-                    "when": "2021-04-08T06:23:35Z",
-                    "name": "Johor Bahru, Johor",
-                    "country": "MY",
-                    "timezone": "Asia/Kuala_Lumpur",
-                    "latitude": 1.516745,
-                    "longitude": 103.733556
-                }
+                "where_lat": 1.516745,
+                "where_lon": 103.733556
                 }'''
 def responseWithOneEventAndNoMoreWaiting():
     r = '''{
@@ -209,6 +202,7 @@ def responseWithOneEventAndNoMoreWaiting():
         }'''
     return r
 
+# 
 
 def getTestResponse():
     r = '''
@@ -217,11 +211,10 @@ def getTestResponse():
         "has_more": true,
         "events": [
             {
-                "uid": "3a531360-577c-447f-b01f-d902014e6a37",
-                "device_uid": "dev:864475044207255",
+                "event": "3a531360-577c-447f-b01f-d902014e6a37",
+                "device": "dev:864475044207255",
                 "file": "_env.dbs",
-                "captured": "2020-01-01T00:05:15Z",
-                "received": "2021-04-08T04:24:40Z",
+                "when": 1577841940,
                 "body": {
                     "card": {
                     "type": "card",
@@ -233,84 +226,45 @@ def getTestResponse():
                     "user": {
                     "type": "user"
                     }
-                },
-                "tower_location": {
-                    "when": "2021-04-08T04:24:14Z",
-                    "name": "Johor Bahru, Johor",
-                    "country": "MY",
-                    "timezone": "Asia/Kuala_Lumpur",
-                    "latitude": 1.516745,
-                    "longitude": 103.733556
-                },
-                "gps_location": null
+                }
            },
             {
-            "uid": "7c83b38b-bf3d-460d-bbbd-d8e90cdabff4",
-            "device_uid": "dev:864475044207255",
-            "file": "_air.qo",
-            "captured": "2020-01-01T00:09:52Z",
-            "received": "2021-04-08T04:30:39Z",
-            "body": {
-                "csecs": 482,
-                "motion": 45,
-                "sensor": "lnd712",
-                "temperature": 0.01,
-                "voltage": 3.9765625
-            },
-            "tower_location": {
-                "when": "2021-04-08T04:30:34Z",
-                "name": "Johor Bahru, Johor",
-                "country": "MY",
-                "timezone": "Asia/Kuala_Lumpur",
-                "latitude": 1.514572,
-                "longitude": 103.734272
-            },
-            "gps_location": null
+                "event": "7c83b38b-bf3d-460d-bbbd-d8e90cdabff4",
+                "device": "dev:864475044207255",
+                "file": "_air.qo",
+                "when": 1577841940,
+                "body": {
+                    "csecs": 482,
+                    "motion": 45,
+                    "sensor": "lnd712",
+                    "temperature": 0.01,
+                    "voltage": 3.9765625
+                }
             },
             {
-            "uid": "3447589a-9724-43fd-92e2-e590fe28e603",
-            "device_uid": "dev:864475044207255",
-            "file": "_air.qo",
-            "captured": "2020-01-01T00:34:44Z",
-            "received": "2021-04-08T06:23:40Z",
-            "body": {
-                "csecs": 484,
-                "motion": 31,
-                "sensor": "lnd712",
-                "temperature": 0.01,
-                "voltage": 3.9667969
-            },
-            "tower_location": {
-                "when": "2021-04-08T06:23:35Z",
-                "name": "Johor Bahru, Johor",
-                "country": "MY",
-                "timezone": "Asia/Kuala_Lumpur",
-                "latitude": 1.516745,
-                "longitude": 103.733556
-            },
-            "gps_location": null
+                "event": "3447589a-9724-43fd-92e2-e590fe28e603",
+                "device": "dev:864475044207255",
+                "file": "_air.qo",
+                "when": 1577841940,
+                "body": {
+                    "csecs": 484,
+                    "motion": 31,
+                    "sensor": "lnd712",
+                    "temperature": 0.01,
+                    "voltage": 3.9667969
+                }
             },
             {
-            "uid": "49b8fcf4-c439-4177-a5a4-39bbe3ded4a9",
-            "device_uid": "dev:864475044207255",
-            "file": "_air.qo",
-            "captured": "2020-01-01T01:25:40Z",
-            "received": "2021-04-08T06:23:41Z",
-            "body": {
-                "csecs": 484,
-                "sensor": "lnd712",
-                "temperature": 0.01,
-                "voltage": 3.9785156
-            },
-            "tower_location": {
-                "when": "2021-04-08T06:23:35Z",
-                "name": "Johor Bahru, Johor",
-                "country": "MY",
-                "timezone": "Asia/Kuala_Lumpur",
-                "latitude": 1.516745,
-                "longitude": 103.733556
-            },
-            "gps_location": null
+                "event": "49b8fcf4-c439-4177-a5a4-39bbe3ded4a9",
+                "device": "dev:864475044207255",
+                "file": "_air.qo",
+                "when": 1577841940,
+                "body": {
+                    "csecs": 484,
+                    "sensor": "lnd712",
+                    "temperature": 0.01,
+                    "voltage": 3.9785156
+                }
             }
         ]
     }'''
