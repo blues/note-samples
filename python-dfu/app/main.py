@@ -144,21 +144,21 @@ def main():
 
     card = connect_notecard(appConfig)
     
+    configure_notecard(card, appConfig)
+    
     print(f"Version: {version.versionStr}")
 
     dfu.setVersion(card, version.versionStr)
     
-    configure_notecard(card, appConfig)
 
     
 
-    millis = lambda : round(time.monotonic() * 1000)
 
     def dummyReset():
         printStatus("executed reset")
 
 
-    updateManager = Updater(card, statusReporter=printStatus, getTimeMS=millis, restartFcn=dummyReset, suppressWatchdog = False)
+    updateManager = Updater(card, statusReporter=printStatus, getTimeMS=getTimeMS, restartFcn=reset, suppressWatchdog = False)
 
     enableUpdate = True
     injectHashError = False

@@ -1,6 +1,11 @@
 from time import time, sleep
 import binascii
-import hashlib
+#import hashlib
+#Maybe I should swap these?  Try hashlibextras first?
+try:
+    from hashlib import md5 as lib_md5
+except:
+    from hashlibextras import md5 as lib_md5
 
 
 class dfuReader:
@@ -23,7 +28,7 @@ class dfuReader:
         self._length = info["length"]
         self._imageHash = info.get("md5", None)
             
-        self._md5 = hashlib.md5()
+        self._md5 = lib_md5()
         self._watchDog = emptyDFUWatchDog(card)
         
 
@@ -36,7 +41,7 @@ class dfuReader:
 
     def reset(self):
         self._offset = 0
-        self._md5 = hashlib.md5()
+        self._md5 = lib_md5()
 
 
     def close(self):
@@ -235,7 +240,7 @@ def _requestDfuChunk(card, start, length):
         content = binascii.a2b_base64(rsp["payload"])
 
         expectedMD5 = rsp["status"]
-        md5 = hashlib.md5(content).hexdigest()
+        md5 = lib_md5(content).hexdigest()
         if md5 != expectedMD5:
             raise Exception ("content checksum mismatch")
 

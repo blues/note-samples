@@ -1,10 +1,11 @@
-# Python File Downloader
+# Python Notecard DFU
 
 This sample shows how to use the Notecard to update a Python application.  
 
 ## Supported Platforms
 
 - Raspberry Pi Pico running Micropython
+- [TODO] SWAN runing circuitpython
 - Raspberry Pi running Linux OS with CPython v3
 - Laptop or PC with standard OS and CPython v3
 
@@ -78,26 +79,10 @@ Notecard USB appears as serial port on PC.  You can select USB or UART and get t
    }
 ```
 
-## Example Application Selection
+## Application Overview
+The main application establishes a periodic loop that will execute the next step in the firmware update process. The steps are small, and should not block execution for very long.
 
-Application selection is performed in the `app/main.py` file.  
-
-You can change which version of *main* is executed by commenting in/out which function should be executed at the end of `app/main.py`
-
-|Main|Description|
-|---|---|
-|main_blocking | Executes entire Python firmware update at once|
-|main_background | Executes Python firmware update one step at a time|
-
-**main_blocking**
-In the main execution loop, if the application detects that a firmware update is available, then it will begin the update process, but will block all other firmware tasks.
-
-This is a faster and arguably simpler way to do the update, but doesn't permit the application to perform other tasks.
-
-**main_background**
-In the main execution loop, the application invokes the next step in the firmware update process.  The steps are small, and should not block execution for very long.
-
-Depending on how the timing and priority for this method is implemented, it may take longer for it to execute the entire firmware update than the "blocking" version. But it enables the application to perform it's nominal functionality while firmware updates occur when time and cycles are available.
+TODO - include example of a blocking version of the firmware update process, not just the version that can be used in a background process
 
 ## Application Configuration
 
@@ -144,8 +129,7 @@ The format of the file is JSON, where the root field names are the configuration
    |`secrets.json`|`./secrets.json`|
    |`app`|`./`|
    |`lib`|`./lib`|
-   |`src/dfu`|`./dfu`|
-   |`src/utarfile`|`./utarfile`|
+   |`src`|`./`|
 
 3. Restart the Pico
 4.  Open a serial terminal to monitor output from Pico over USB connection
@@ -171,5 +155,11 @@ The format of the file is JSON, where the root field names are the configuration
 
    4. Deploy the TAR-file to your Notecard by following: <https://dev.blues.io/notehub/notehub-walkthrough/#deploy-firmware>
    5. After the installation completes, Notehub should register a new version that matches the change in *step 1*
+
+
+
+## Development and Testing
+TODO
+
 
 [notecarrier-pi-kit]:https://shop.blues.io/products/raspberry-pi-starter-kit

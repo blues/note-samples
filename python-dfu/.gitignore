@@ -2,3 +2,5 @@ secrets.json
 t/
 .vscode/
 pico-go.json
+*.bin
+_*/

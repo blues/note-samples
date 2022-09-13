@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from mimetypes import init
 from utarfile import TarExtractor
 import dfu
 
