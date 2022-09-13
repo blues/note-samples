@@ -9,12 +9,13 @@ dbFile = "airnote_data.db"
 store = dbstore.dbstore(file=dbFile)
 
 def migrateDataToDb(event):
-    eventId = event.get("uid")
-    deviceId = event.get("device_uid")
-    timestamp = event.get("captured")
-    location = event.get("gps_location")
+    eventId = event.get("event")
+    deviceId = event.get("device")
+    timestamp = event.get("when")
+    latitude = event.get("where_lat")
+    longitude = event.get("where_lon")
     data=event.get("body")
-    store.addMeasurement(deviceId, timestamp, data, location, eventId)
+    store.addMeasurement(deviceId, timestamp, data, latitude, longitude, eventId)
 
 def migrateDeviceData(max_requests=10):
 
