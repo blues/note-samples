@@ -1,11 +1,10 @@
 from time import time, sleep
 import binascii
-#import hashlib
-#Maybe I should swap these?  Try hashlibextras first?
+
 try:
-    from hashlib import md5 as lib_md5
-except:
     from hashlibextras import md5 as lib_md5
+except:
+    from hashlib import md5 as lib_md5
 
 
 class dfuReader:

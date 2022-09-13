@@ -532,7 +532,7 @@ def test_DFUError_isa_DFUState_class():
 
 def test_DFUError_constructor_sets_properties():
     e = DFUError()
-    assert e.message is ""
+    assert e.message == ""
     assert e.discardImage is False
 
     m = "my error message"
