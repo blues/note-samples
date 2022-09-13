@@ -185,6 +185,21 @@ class TarItemTest(unittest.TestCase):
         f = io.BytesIO(headerBytes+content+footerBytes)
 
         i = utar.TarItem(f, "name", utar.Type.FILE, len(content), len(headerBytes))
+        b =  bytearray(len(content))
+
+        s = i.readinto(b)
+
+        self.assertEqual(s, len(content))
+        self.assertEqual(b[0:len(content)], content)
+
+    def test_taritem_readinto_buffer_longer_than_available_content_populates_start_of_buffer(self):
+        headerBytes = b'some-header-bytes\0'
+        content = b'this-is-the-content'
+        footerBytes = b'\0\0'
+
+        f = io.BytesIO(headerBytes+content+footerBytes)
+
+        i = utar.TarItem(f, "name", utar.Type.FILE, len(content), len(headerBytes))
         arbitrary_extra_length = 3
         b =  bytearray(len(content) + arbitrary_extra_length)
 

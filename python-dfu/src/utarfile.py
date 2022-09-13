@@ -196,7 +196,8 @@ class Type:
 # # http://www.gnu.org/software/tar/manual/html_node/Standard.html
 # 
 
-getHeaderContentFromBuffer = lambda x: {"name":"name", "size":0}
+def getHeaderContentFromBuffer(buf): # pragma: no cover
+    pass
 
 
 import sys
@@ -209,7 +210,7 @@ if use_micropython: # pragma: no cover
         }
     def getHeaderContentFromBufferMP(buf):
         return uctypes.struct(uctypes.addressof(buf), TAR_HEADER, uctypes.LITTLE_ENDIAN)
-    getHeaderContentFromBuffer = getHeaderContentFromBufferMP
+    getHeaderContentFromBuffer = getHeaderContentFromBufferMP  # type: ignore
 else:
     import struct
     S = struct.Struct('<100s24x11s')  # type: ignore
@@ -222,5 +223,5 @@ else:
         n, s = S.unpack_from(buf, 0)
         return headerContent(n, s)
 
-    getHeaderContentFromBuffer = getHeaderContentFromBufferCP
+    getHeaderContentFromBuffer = getHeaderContentFromBufferCP  # type: ignore
 
