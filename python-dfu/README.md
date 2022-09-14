@@ -159,7 +159,82 @@ The format of the file is JSON, where the root field names are the configuration
 
 
 ## Development and Testing
-TODO
+For doing additional development work and executing tests refer to the following sections
+
+### Installing Development and Testing Python Packages
+
+To install all of the package prerequisites
+```
+pip install -r requirements-ci.txt
+``` 
+
+Use the `runtests.py` script to execute test suite with code coverage.
+```
+python runtests.py
+```
+
+### Install `ampy` to Deploy to Micropython
+The Micropython update scripts use [`ampy`](https://pypi.org/project/adafruit-ampy/) to copy source files to the microprocessor.
+
+To install `ampy`
+```
+pip install adafruit-ampy
+```
+
+> ❗ **Configure Serial Port**: Be sure to set the correct serial port by setting the `AMPY_PORT` environment variable.
+
+_Linux/Mac_
+```
+export AMPY_PORT=/dev/tty.SLAB_USBtoUART
+```
+
+_Windows_
+```
+set AMPY_PORT=COM4
+```
+
+### Update Notecard SDK for Micropython
+For convenience in copying the SDK package to the microprocessor, this repository contains a copy of the Notecard SDK `note-python`
+
+To update the version of the Notecard SDK you can copy the contents of the latest `note-python` version to `./lib/notecard`
+
+1. Download the latest release here: https://github.com/blues/note-python/releases
+2. Extract the ZIP-archive
+3. Copy the contents of the `notecard` directory to `./lib/notecard`
+4. Execute `ampy` to copy `lib` folder to the microprocessor
+   ```
+   ampy put lib lib
+   ```
+   
+
+### Repository Layout
+#### **src**
+Python source for modules that define OTA update process
+|| |
+|---|---|
+|`dfu`| abstracts the interactions with Notecard to migrate the content from the Notecard to the host processor|
+|`updater`| state machine for managing file update process. See [doc\dfuFlow.md](doc\dfuFlow.md) for more details|
+|`utarfile`| reading and extracting content from TAR-file|
+
+#### **test**
+Unit tests for modules in `src`
+
+#### **app**
+Python files defining example main host MCU application.  Application written to work in Python3 and Micropython executing on Raspberry Pi Pico.
+|| |
+|---|---|
+|`config`| class defining application configuration and defaults|
+|`version`| class defining current application version info|
+|`main`| entry point file. Establishes configuration, connects to Notecard, and executes main loop|
+
+
+#### **lib**
+Source for Python modules to augment Micropython
+|||
+|---|---|
+|`haslibextras`| implement MD5 hash function, which is not available in `hashlib` library in Micropython|
+|`notecard`| Notecard SDK|
+|`abc`| stub implementation for Python abstract classes which are not supported in Micropython|
 
 
 [notecarrier-pi-kit]:https://shop.blues.io/products/raspberry-pi-starter-kit

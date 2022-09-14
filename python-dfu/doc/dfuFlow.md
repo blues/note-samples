@@ -1,5 +1,6 @@
 # Python Firmware Update Overview
 
+Sequence diagram for the firmware update (DFU) process.  
 ```mermaid
 sequenceDiagram
     participant User
@@ -44,7 +45,7 @@ sequenceDiagram
 ``` 
             
 
-**A couple of things:**
+**❗ Important Notes:**
 * Notecard disables syncing to the cloud when in DFU mode.  
 * Upon exiting DFU mode, Notecard will attempt to reconnect to the cloud using the previous "hub" settings
   

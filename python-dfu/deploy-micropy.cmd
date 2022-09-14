@@ -1,11 +1,11 @@
 
+set AMPY_PORT=COM6
 
+for /d /r ".\lib" %%a in (__pycache__\) do if exist "%%a" rmdir /s /q "%%a"
+for /d /r ".\app" %%a in (__pycache__\) do if exist "%%a" rmdir /s /q "%%a"
+for /d /r ".\src" %%a in (__pycache__\) do if exist "%%a" rmdir /s /q "%%a"
 
-ampy --port COM6 put secrets.json
-ampy --port COM6 put lib lib
-REM ampy --port COM6 put note-python/notecard lib/notecard
-REM ampy --port COM6 put src/dfu dfu
-REM ampy --port COM6 put lib/abc/abc.py abc.py
-REM ampy --port COM6 put src/utarfile/utarfile.py lib/utarfile
-ampy --port COM6 put app ./
-ampy --port COM6 put src ./
+ampy put secrets.json
+ampy put lib lib
+ampy put app ./
+ampy put src ./
