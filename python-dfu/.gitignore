@@ -1,9 +1,9 @@
-*.db
-*.csv
-*.ps1
-
-# test environment variables
-*_private.sh
+secrets.json
+t/
+.vscode/
+pico-go.json
+*.bin
+_*/
 
 
 # Byte-compiled / optimized / DLL files

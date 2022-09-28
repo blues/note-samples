@@ -1,3 +1,0 @@
-note-python
-python-periphery
-pytest
