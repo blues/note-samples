@@ -12,7 +12,6 @@ jobs:
         sample:
           - "python-dfu"
           - "python-airnote-data-migration"
-          - "python-file-downloader/application"
           - "python-remote-commands-attn-rpi"
           - "python-route-endpoint"
     steps:
