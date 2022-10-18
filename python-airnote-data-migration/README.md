@@ -85,6 +85,11 @@ You can view the help for this app by entering the following at the system comma
 python main.py -h
 ```
 
+## Limitations
+Historical data limit is 90 days before today.
+
+The repository this script requests data from does not preserve measurements older than 90 days. 
+
 ## Documentation
 
 The documentation for the Notehub API can be found
