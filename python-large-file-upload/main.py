@@ -6,13 +6,14 @@ import time
 import binascii
 
 
-
+# Define default options
 DEFAULT_PORT_ID = "COM4"
 DEFAULT_PORT_BAUDRATE = 9600
 DEFAULT_DEBUG_TRANSACTIONS = True
 DEFAULT_LOG_FOLDER = './log'
 DEFAULT_ROUTE_NAME = "ping"
 
+## Function to parse command-line arguments
 def parseCommandLineArgs():
 
     DESCRIPTION = """Example for uploading larger files and data to the cloud
