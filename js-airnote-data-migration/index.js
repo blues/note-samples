@@ -4,7 +4,17 @@ const fs = require("fs");
 
 dataFileName = "data.csv"
 eventCacheName = "event_cursor_cache.json";
-numEventsPerQuery = 10;
+numEventsPerQuery = 100;
+const deviceUIDs = [
+    "dev:864475046524871",
+    "dev:864475046538194",
+    "dev:864475046526330",
+    "dev:864475046524632",
+    "dev:864475046539978",
+];
+
+const airnoteProjectUID = "app:2606f411-dea6-44a0-9743-1130f57d77d8";
+
 
 
 const defaultClient = NotehubJs.ApiClient.instance;
@@ -14,15 +24,14 @@ api_key.api_key = process.env.AIRNOTE_PIN
 
 let apiInstance = new NotehubJs.EventApi();
 
-const projectUID = "app:2606f411-dea6-44a0-9743-1130f57d77d8";
-const deviceUIDs = ["dev:864475046539952","dev:864475046524855"];
 
+
+// Load event cache from file
 try {
     content = fs.readFileSync(eventCacheName);
 } catch (error) {
     content = "{}";
 }
-
 let eventCursorCache = JSON.parse(content);
 
 
@@ -62,20 +71,20 @@ const parserOpts = {
 ]
 };
 
-
+// Create header for CSV File
 csvHeaderArray = parserOpts.fields.map(s => s.replace(/^(body\.)/,""))
 csvHeader = csvHeaderArray.join(",") + "\n";
 
 const parser = new plainjs.Parser(parserOpts);
 
+//Cache last downloaded event for each device for future reference
 function updateEventCursorCache(device, cursor, fileName = eventCacheName){
     eventCursorCache[device] = cursor;
-    console.log(eventCursorCache)
     fs.writeFileSync(fileName, JSON.stringify(eventCursorCache));
 }
 
-
-async function getAirnoteData(deviceUID, cursor="", maxReads = 3){
+// Download data from Airnote Project
+async function getAirnoteData(deviceUID, cursor="", maxReads = 20){
 let opts = {
     limit: numEventsPerQuery, 
     cursor: cursor, 
@@ -87,7 +96,7 @@ let opts = {
     let csv = ""
     count = 0;
     while (count < maxReads){
-        data = await apiInstance.getProjectEventsByCursor(projectUID, opts);
+        data = await apiInstance.getProjectEventsByCursor(airnoteProjectUID, opts);
         count++;
         csv += parser.parse(data.events) + "\n";
         if (!data.has_more || !data.next_cursor){
