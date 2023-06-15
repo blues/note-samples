@@ -1,3 +1,10 @@
+# test files
+data.csv
+event_cursor_cache.json
+setTestEnvironment.ps1
+*.zip
+
+
 # Logs
 logs
 *.log

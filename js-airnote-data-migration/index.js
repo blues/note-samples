@@ -20,7 +20,7 @@ const airnoteProjectUID = "app:2606f411-dea6-44a0-9743-1130f57d77d8";
 const defaultClient = NotehubJs.ApiClient.instance;
 
 let api_key = defaultClient.authentications["api_key"];
-api_key.api_key = process.env.AIRNOTE_PIN
+api_key.api_key = process.env.NOTEHUB_PIN
 
 let apiInstance = new NotehubJs.EventApi();
 
