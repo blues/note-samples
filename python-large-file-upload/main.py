@@ -10,8 +10,11 @@ import binascii
 DEFAULT_PORT_ID = "COM4"
 DEFAULT_PORT_BAUDRATE = 9600
 DEFAULT_DEBUG_TRANSACTIONS = True
+DEFAULT_WAIT_FOR_CONNECTION = True
 DEFAULT_LOG_FOLDER = './'
 DEFAULT_ROUTE_NAME = "ping"
+DEFAULT_HUB_MODE = "continuous"
+DEFAULT_CHUNK_SIZE_BYTES = 1024
 
 ## Function to parse command-line arguments
 def parseCommandLineArgs():
@@ -31,13 +34,18 @@ def parseCommandLineArgs():
     p.add("-d", "--debug-transactions", help="Display Notecard transactions", default=DEFAULT_DEBUG_TRANSACTIONS, type=lambda x:bool(strtobool(x)),nargs='?',const=True)
     p.add("-lf", "--log-folder", help="Directory where log files are stored", default=DEFAULT_LOG_FOLDER, env_var="LOG_FOLDER")
     p.add("-f", "--file", help="File to use as data source for transfer", required=True)
+    p.add("-w", "--wait-for-connection", help="Wait until Notecard is connected to Notehub", default=DEFAULT_WAIT_FOR_CONNECTION, type=lambda x:bool(strtobool(x)),nargs='?',const=True)
+    p.add("-m", "--mode", help="Notecard connection mode to Notehub (continuous, periodic, minimum)", default=DEFAULT_HUB_MODE)
+    p.add("-s", "--chunk-size", help="Size of file chunk to transfer in bytes", default=DEFAULT_CHUNK_SIZE_BYTES, type=int)
 
     opts = p.parse_args()
     return opts
 
 ## Get options
 opts = parseCommandLineArgs()
+use_temp_continuous = opts.mode != 'continuous'
 print(opts)
+
 
 ## Configure logging
 logFolder = opts.log_folder.rstrip("/\\")
@@ -80,7 +88,7 @@ logging.info(f"NOTECARD INFO Device: {rsp['device']} SKU: {rsp['sku']} Firmware 
 
 ## Configure Notehub Connection
 hubConfig = {
-    "mode":"continuous",
+    "mode": opts.mode.lower(),
     "sync":True, 
     "product":opts.product_uid
     }
@@ -119,9 +127,9 @@ def sendFileBytes(filename):
         s = 0
         numBytes = 0
         while keepReading:
-            payload = p.read(1024)
+            payload = p.read(opts.chunk_size)
             numPayloadBytes = len(payload) 
-            keepReading = numPayloadBytes >=1024
+            keepReading = numPayloadBytes >=opts.chunk_size
             
             
             try:
@@ -136,7 +144,37 @@ def sendFileBytes(filename):
     logging.info(f"Payload Size: {numBytes/1024} KB.")
             
 
+def waitForConnection():
+    req = {"req":"hub.status"}
+    isConnected=False
+    while not isConnected:
+        rsp = sendRequest(req)
+        isConnected =  rsp.get('connected', False)
+        time.sleep(1)
+
+def setTempContinuousMode():
+    timeoutSecs = 3600
+    req = {"req":"hub.set", "on":True, "seconds":timeoutSecs}
+    sendRequest(req)
+
+def unsetTempContinuousMode():
+    req = {"req":"hub.set", "off":True}
+    sendRequest(req)
+
+
+if use_temp_continuous:
+    setTempContinuousMode()
+
+if opts.wait_for_connection or use_temp_continuous:
+    logging.info(f"Waiting for Notehub connection")
+    waitForConnection()
+
+
 if (opts.file):
     sendFileBytes(opts.file)
 else:
     logging.warning("No file selected to parse and send bytes")
+
+
+if use_temp_continuous:
+    unsetTempContinuousMode()
