@@ -113,20 +113,69 @@ let opts = {
 }
 
 
+async function getAirnoteSensorData(deviceID) {
+    const defaultClient = NotehubJs.ApiClient.instance;
+    const authKey = defaultClient.authentications["api_key"];
+    const apiKey = authKey.api_key = process.env.NOTEHUB_PIN;
+
+    let apiInstance = new NotehubJs.EventApi();
+
+    const airnoteProjectUID = "app:2606f411-dea6-44a0-9743-1130f57d77d8"
+
+    /*
+    this gets the start and end date of the desired time range. A function is set up for this
+    the calculateTimeRange function receives a range like 'yesterday', 'week', 'month' and
+    calculates the starting and ending datetimes. because a UNIX EPOCH timestamp is needed
+    for this request, a conversion is made using valueOf().
+    
+    Example: today being 14/06/2023, a 'yesterday' arguement will produce;
+    startDate = 1686096000000 (which is 2023-06-07T00:00:00.000Z)
+    endDate = 1686700799999 (which is 2023-06-13T23:59:59.999Z)
+    */
+    // const [startDate, endDate] = calculateTimeRange(dataRange);
+    // console.log(startDate.valueOf() + " " + endDate.valueOf());
+    
+    const opts = {
+        pageSize: 50,
+        sortOrder: "asc",
+        startDate: Math.floor(1686096000000/1000),
+        endDate: Math.ceil(1686700799999/1000),
+        files: "_air.qo",
+        deviceUID: deviceID,
+    };
+
+    // Fetch data from NoteHub
+    try {
+        const fetchedData = await apiInstance.getProjectEvents(airnoteProjectUID, opts);
+
+        //log to console for debugging purposes
+        console.log('Data fetched:', fetchedData);
+
+        // return fetchedData;
+    } catch (error) {
+        console.log('Error fetching data:', error);
+        throw error;
+    }
+}
+
+
+
 
 
 var promises = [];
 var csv = "";
 
-deviceUIDs.forEach((d)=>{
-    cursor = eventCursorCache[d] || "";
-    promises.push(getAirnoteData(d, cursor).then((r) =>{csv += r}))
-});
+promises.push(getAirnoteSensorData(deviceUIDs[0]))
+
+// deviceUIDs.forEach((d)=>{
+//     cursor = eventCursorCache[d] || "";
+//     promises.push(getAirnoteData(d, cursor).then((r) =>{csv += r}))
+// });
 
 Promise.all(promises)
     .then(()=> {
-        fs.writeFileSync(dataFileName,csvHeader)
-        fs.appendFileSync(dataFileName, csv)
+        // fs.writeFileSync(dataFileName,csvHeader)
+        // fs.appendFileSync(dataFileName, csv)
     })
 
 
