@@ -15,6 +15,7 @@ DEFAULT_LOG_FOLDER = './'
 DEFAULT_ROUTE_NAME = "ping"
 DEFAULT_HUB_MODE = "continuous"
 DEFAULT_CHUNK_SIZE_BYTES = 1024
+DEFAULT_WEB_REQUEST_TIMEOUT = 30
 
 ## Function to parse command-line arguments
 def parseCommandLineArgs():
@@ -37,6 +38,7 @@ def parseCommandLineArgs():
     p.add("-w", "--wait-for-connection", help="Wait until Notecard is connected to Notehub", default=DEFAULT_WAIT_FOR_CONNECTION, type=lambda x:bool(strtobool(x)),nargs='?',const=True)
     p.add("-m", "--mode", help="Notecard connection mode to Notehub (continuous, periodic, minimum)", default=DEFAULT_HUB_MODE)
     p.add("-s", "--chunk-size", help="Size of file chunk to transfer in bytes", default=DEFAULT_CHUNK_SIZE_BYTES, type=int)
+    p.add("-t", "--timeout", help="Web request timeout in seconds", default=DEFAULT_WEB_REQUEST_TIMEOUT, type=int)
 
     opts = p.parse_args()
     return opts
@@ -44,20 +46,20 @@ def parseCommandLineArgs():
 ## Get options
 opts = parseCommandLineArgs()
 use_temp_continuous = opts.mode != 'continuous'
-print(opts)
-
 
 ## Configure logging
 logFolder = opts.log_folder.rstrip("/\\")
-
+logLevel = logging.DEBUG if opts.debug_transactions else logging.INFO
 logging.basicConfig(
-    level=logging.INFO,
+    level=logLevel,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler(f'{logFolder}/{time.strftime("%Y%m%d-%H%M%S")}.log'),
         logging.StreamHandler()
     ]
 )
+
+logging.info(opts)
 
 ## Connect to Notecard
 port = serial.Serial(opts.port, baudrate=opts.baudrate)
@@ -71,7 +73,9 @@ def sendRequest(req, args=None, ignoreErrors = [], errRaisesException=True):
     if args:
         req = dict(req, **args)
 
+    logging.debug(req)
     rsp = card.Transaction(req)
+    logging.debug(rsp)
     if errRaisesException and 'err' in rsp:
         if any(s in rsp['err'] for s in ignoreErrors):
             return rsp
@@ -100,7 +104,7 @@ logging.info(f"HUB INFO  ProductUID: {hubConfig['product']}  Sync: {hubConfig['s
 ## Configure Baseline Web Request
 webReq = {"req":"web.post",
     "payload":"",
-    "seconds":2,
+    "seconds": opts.timeout,
     "route":opts.route,
     "offset":0,
     "total":0
