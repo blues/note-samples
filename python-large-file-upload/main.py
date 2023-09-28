@@ -111,7 +111,11 @@ def writeWebReqChunk(payload, offset, total):
     webReq['payload'] = str(binascii.b2a_base64(bytes(payload))[:-1], 'utf-8')
     webReq['offset'] = offset
     webReq['total'] = total
-    sendRequest(webReq)
+    rsp = sendRequest(webReq)
+
+    if rsp.get("result", 300) >= 300:
+        msg = rsp.get('body', {}).get('err', 'unknown')
+        raise Exception("Web Request Error: " + msg)
 
 
 
