@@ -1,10 +1,12 @@
 import serial
+#import wiringpi
 import notecard
 import logging
 import configargparse
 import time
 import binascii
 
+#wiringpi.wiringPiSetup()
 
 # Define default options
 DEFAULT_PORT_TYPE = "serial"
@@ -89,9 +91,10 @@ if using_i2c:
     # Use python-periphery on a Linux desktop or Raspberry Pi
     from periphery import I2C
     port = I2C(opts.port)
-    card = notecard.OpenI2C(port, debug=opts.debug_transactions)
+    card = notecard.OpenI2C(port, 0, 0, debug=opts.debug_transactions)
 else: 
     port = serial.Serial(opts.port, baudrate=opts.baudrate)
+    #port = wiringpi.serialOpen(opts.port,opts.baudrate)
     card = notecard.OpenSerial(port, debug=opts.debug_transactions)
 
 ## Notecard Request Method
@@ -151,7 +154,7 @@ def writeWebReqChunk(payload, offset, total):
         raise Exception("Web Request Error: " + msg)
 
 
-def sendDataBytes(sizeOfTestData, chunk_size):
+def sendTestBytes(sizeOfTestData, chunk_size):
     data = bytearray([7]*int(sizeOfTestData))
 
     totalBytes = len(data)
@@ -227,7 +230,7 @@ if using_file:
     endTime = time.time()
 else:
     startTime = time.time()
-    sendFileBytes(opts.test_size, opts.chunk_size)
+    sendTestBytes(opts.test_size, opts.chunk_size)
     endTime = time.time()
 
 
