@@ -6,11 +6,7 @@ dataFileName = "data.csv"
 eventCacheName = "event_cursor_cache.json";
 numEventsPerQuery = 100;
 const deviceUIDs = [
-    "dev:864475046524871",
-    "dev:864475046538194",
-    "dev:864475046526330",
-    "dev:864475046524632",
-    "dev:864475046539978",
+    "dev:xxxxxxxxxx",
 ];
 
 const airnoteProjectUID = "app:2606f411-dea6-44a0-9743-1130f57d77d8";
