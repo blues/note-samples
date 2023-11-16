@@ -1,9 +1,19 @@
 *.db
 *.csv
 *.ps1
+*.bak
 
 # test environment variables
 *_private.sh
+
+# virtual environments
+.env/
+
+# vs-code config
+.vscode/
+
+# test results
+responses/
 
 
 # Byte-compiled / optimized / DLL files

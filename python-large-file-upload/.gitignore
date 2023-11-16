@@ -4,6 +4,12 @@
 # VSCode
 .vscode/
 
+# Log folder
+logs/
+
+# Test file folder
+test_files/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

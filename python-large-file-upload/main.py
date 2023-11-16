@@ -16,6 +16,10 @@ DEFAULT_ROUTE_NAME = "ping"
 DEFAULT_HUB_MODE = "continuous"
 DEFAULT_CHUNK_SIZE_BYTES = 1024
 DEFAULT_WEB_REQUEST_TIMEOUT = 30
+DEFAULT_MEASURE_TRANSFER_TIME = True
+
+def str2bool(v):
+    return v.lower() in ["true", "t", "1", "on", "yes", "y"]
 
 ## Function to parse command-line arguments
 def parseCommandLineArgs():
@@ -32,13 +36,14 @@ def parseCommandLineArgs():
     p.add("-p", "--port", help="Serial port identifier for serial port connected to Notecard", default=DEFAULT_PORT_ID)
     p.add("-b", "--baudrate", help="Serial port baudrate (bps)", default=DEFAULT_PORT_BAUDRATE, type = int)
     p.add("-r", "--route", help="Name of route Notecard web request transactions will use", default=DEFAULT_ROUTE_NAME)
-    p.add("-d", "--debug-transactions", help="Display Notecard transactions", default=DEFAULT_DEBUG_TRANSACTIONS, type=lambda x:bool(strtobool(x)),nargs='?',const=True)
+    p.add("-d", "--debug-transactions", help="Display Notecard transactions", default=DEFAULT_DEBUG_TRANSACTIONS, type=lambda x:bool(str2bool(x)),nargs='?',const=True)
     p.add("-lf", "--log-folder", help="Directory where log files are stored", default=DEFAULT_LOG_FOLDER, env_var="LOG_FOLDER")
     p.add("-f", "--file", help="File to use as data source for transfer", required=True)
-    p.add("-w", "--wait-for-connection", help="Wait until Notecard is connected to Notehub", default=DEFAULT_WAIT_FOR_CONNECTION, type=lambda x:bool(strtobool(x)),nargs='?',const=True)
+    p.add("-w", "--wait-for-connection", help="Wait until Notecard is connected to Notehub", default=DEFAULT_WAIT_FOR_CONNECTION, type=lambda x:bool(str2bool(x)),nargs='?',const=True)
     p.add("-m", "--mode", help="Notecard connection mode to Notehub (continuous, periodic, minimum)", default=DEFAULT_HUB_MODE)
     p.add("-s", "--chunk-size", help="Size of file chunk to transfer in bytes", default=DEFAULT_CHUNK_SIZE_BYTES, type=int)
     p.add("-t", "--timeout", help="Web request timeout in seconds", default=DEFAULT_WEB_REQUEST_TIMEOUT, type=int)
+    p.add("-e", "--measure-elapsed-time", help="Measure how long the file transfer process takes", default=DEFAULT_MEASURE_TRANSFER_TIME, type=lambda x:bool(str2bool(x)),nargs='?',const=True )
 
     opts = p.parse_args()
     return opts
@@ -177,12 +182,17 @@ if opts.wait_for_connection or use_temp_continuous:
     logging.info(f"Waiting for Notehub connection")
     waitForConnection()
 
-
+startTime = 0
 if (opts.file):
+    startTime = time.time()
     sendFileBytes(opts.file)
+    endTime = time.time()
 else:
     logging.warning("No file selected to parse and send bytes")
 
 
 if use_temp_continuous:
     unsetTempContinuousMode()
+
+if opts.measure_elapsed_time:
+    logging.info(f"Elapsed time sending file: {endTime-startTime} seconds")
