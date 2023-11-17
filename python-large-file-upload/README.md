@@ -42,17 +42,17 @@ For Notecard firmware with versions less than 5.3.1, this example can support th
 
 ### Creating Web Proxy Route
 
-1. Navigate to https://notehub.io/projects
+1. Navigate to <https://notehub.io/projects>
 2. Select which project you are going to use
 3. Click "Routes" from the navigation menu on the left-hand side of the page
 4. Click "Create Route" button on the upper right
 5. Select "Web Proxy Route"
 6. Set the following
-   
+
    |Parameter|Value|Description|
    |---------|-----|-----------|
    |Name|My Web Request Route|Name of route you want to appear in Notehub|
-   |URL|https://myjson.live/ping|URL where HTTP requests from Notecard are forwarded|
+   |URL|<https://myjson.live/ping|URL> where HTTP requests from Notecard are forwarded|
    |Alias|ping|Identifier used by Notecard to determine which Web Proxy route to apply|
 
 7. Click "Create Route"
@@ -93,8 +93,8 @@ While not required, the `-u` argument is recommended to set the Notecard Product
 | | | |
 |---|---|---|
 | -u <PRODUCT_UID> | Set Notecard Product UID|
-| -p <PORT NAME> | UART port connected to Notecard|
-| -b <BAUD RATE> | UART serial baud rate. Defaults to 115200|
+| -p <PORT_NAME> | UART port connected to Notecard. Defaults to COM4|
+| -b <BAUD_RATE> | UART serial baud rate. Defaults to 115200|
 | -d | Display and log debug messages |
 | -e | Measure and display time elapsed during file transfer process |
 | --legacy | Use legacy Base64 encoding method |
@@ -109,24 +109,6 @@ While not required, the `-u` argument is recommended to set the Notecard Product
 
 1. Clone this repository
 2. Run `pip install -r requirements.txt` to install all of the prerequisites.
-3. Download the ZIP-file from the [note-python](https://github.com/blues/note-python) repository on Github
-4. Extract the ZIP-file
-5. Move the `notecard` folder from the ZIP-file to the folder containing this README.md file
-
-The folder structure should appear as
-
-``` text
-> .
-  > .venv (here if you are using Virtual Environments in Python)
-  > notecard
-  .gitignore
-  main.py
-  notecardDataTransfer.py
-  README.md
-  requirements.txt
-```
-
-Steps 3-5 will not be necessary on the next release of the note-python library to the pip repository.
 
 ## Upload Method Summary
 
@@ -155,3 +137,31 @@ Prior to this feature addition, the upload method follows this general process
 While it appears to be fewer steps, the number of iterations to complete the entire upload transaction is much higher, as the number of bytes transferred on each transaction is relatively small.  
 
 For large binary blobs, the difference in upload time is substantial.
+
+
+## Updating the note-python SDK
+
+As of version v1.4.4 of the _note-python SDK_, the `card.binary` convenience functions are not available in the SDK.  Therefore, using `pip install note-python` may result in an SDK version that is incompatible with this example.
+
+The _note-python_ core module is included in the `notecard` folder in this repository until a new version is released.  In the mean time, if you need to update the _note-python SDK_ for any reason, you will need to do the following:
+
+1. Download the ZIP-file from the [note-python](https://github.com/blues/note-python) repository on Github
+
+    ![How to download ZIP on Github](github_download_zip.png)
+
+2. Extract the ZIP-file
+3. Move the `notecard` folder from the ZIP-file to the folder containing this README.md file
+
+The folder structure should appear as
+
+``` text
+> .
+  > .venv (folder for Virtual Environments in Python)
+  > notecard
+  .gitignore
+  main.py
+  notecardDataTransfer.py
+  README.md
+  requirements.txt
+```
+
