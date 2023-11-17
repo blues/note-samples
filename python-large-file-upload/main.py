@@ -1,6 +1,7 @@
 import serial
 #import wiringpi
 import notecard
+from notecard import binary_helpers
 import logging
 import configargparse
 import time
@@ -21,6 +22,7 @@ DEFAULT_HUB_MODE = "continuous"
 DEFAULT_CHUNK_SIZE_BYTES = 1024
 DEFAULT_WEB_REQUEST_TIMEOUT = 30
 DEFAULT_MEASURE_TRANSFER_TIME = True
+DEFAULT_NOTECARD_TRANSFER_MODE = "binary"
 
 def str2bool(v):
     return v.lower() in ["true", "t", "1", "on", "yes", "y"]
@@ -50,6 +52,7 @@ def parseCommandLineArgs():
     p.add("-e", "--measure-elapsed-time", help="Measure how long the file transfer process takes", default=DEFAULT_MEASURE_TRANSFER_TIME, type=lambda x:bool(str2bool(x)),nargs='?',const=True )
     p.add("-n", "--port-type", help="Select Serial or I2C port type", default=DEFAULT_PORT_TYPE)
     p.add("-z", "--test-size", help="Size in Bytes of test data to use", default=0, type=int);
+    p.add("-x", "--transfer-mode", help="Set file transfer mode", default=DEFAULT_NOTECARD_TRANSFER_MODE)
 
     opts = p.parse_args()
     return opts
@@ -69,6 +72,7 @@ if opts.file != None and opts.test_size != 0:
     raise(Exception("Cannot provide both a file and a size of a test in bytes"))
 
 using_file = opts.file != None
+using_binary = opts.transfer_mode.lower()=="binary"
 
 ## Configure logging
 logFolder = opts.log_folder.rstrip("/\\")
@@ -154,9 +158,13 @@ def writeWebReqChunk(payload, offset, total):
         raise Exception("Web Request Error: " + msg)
 
 
-def sendTestBytes(sizeOfTestData, chunk_size):
-    data = bytearray([7]*int(sizeOfTestData))
+def generateTestData(sizeOfTestData, byteValue=7):
+    data = bytearray([byteValue]*int(sizeOfTestData))
+    return data
 
+
+def sendTestBytes(data, chunk_size):
+    
     totalBytes = len(data)
     numBytes = 0
     while numBytes <= totalBytes:
@@ -167,6 +175,37 @@ def sendTestBytes(sizeOfTestData, chunk_size):
             break
 
         numBytes = e
+
+
+def sendBytesBinary(data):
+    
+
+    totalBytes = len(data)
+    bytesSent = 0
+
+    req = webReq
+    req["binary"]=True
+    req['total'] = totalBytes
+
+    while bytesSent < totalBytes:
+        binary_helpers.binary_store_reset(card)
+        rsp = sendRequest("card.binary")
+        max = rsp.get("max", 0)
+        ind = min(bytesSent + max, totalBytes)
+
+        binary_helpers.binary_store_transmit(card, data[bytesSent:ind], 0)
+        req['offset'] = bytesSent
+
+        rsp = sendRequest(req)
+
+        if rsp.get("result", 300) >= 300:
+            msg = rsp.get('body', {}).get('err', 'unknown')
+            raise Exception("Web Request Error: " + msg)
+
+        bytesSent += ind
+
+
+
 
 
 def sendFileBytes(filename):
