@@ -6,6 +6,7 @@ import logging
 import configargparse
 import time
 import binascii
+import io
 
 #wiringpi.wiringPiSetup()
 
@@ -138,8 +139,7 @@ logging.info(f"HUB INFO  ProductUID: {hubConfig['product']}  Sync: {hubConfig['s
 
 
 ## Configure Baseline Web Request
-webReq = {"req":"web.post",
-    "payload":"",
+webReqRoot = {"req":"web.post",
     "seconds": opts.timeout,
     "route":opts.route,
     "offset":0,
@@ -147,8 +147,20 @@ webReq = {"req":"web.post",
     }
 
 ## Generate and Perform Web Request from Chunk of file Bytes
-def writeWebReqChunk(payload, offset, total):
+def writeWebReqPayload(payload, offset, total):
+    webReq = webReqRoot
     webReq['payload'] = str(binascii.b2a_base64(bytes(payload))[:-1], 'utf-8')
+    webReq['offset'] = offset
+    webReq['total'] = total
+    rsp = sendRequest(webReq)
+
+    if rsp.get("result", 300) >= 300:
+        msg = rsp.get('body', {}).get('err', 'unknown')
+        raise Exception("Web Request Error: " + msg)
+    
+def writeWebReqBinary(offset, total):
+    webReq = webReqRoot
+    webReq['binary'] = True
     webReq['offset'] = offset
     webReq['total'] = total
     rsp = sendRequest(webReq)
@@ -159,82 +171,48 @@ def writeWebReqChunk(payload, offset, total):
 
 
 def generateTestData(sizeOfTestData, byteValue=7):
-    data = bytearray([byteValue]*int(sizeOfTestData))
+    data = io.BytesIO(bytearray([byteValue]*int(sizeOfTestData)))
     return data
 
 
-def sendTestBytes(data, chunk_size):
+def sendBytesBinary(data: io.IOBase):
     
-    totalBytes = len(data)
-    numBytes = 0
-    while numBytes <= totalBytes:
-        e = min(numBytes + chunk_size, totalBytes)
-        try:
-            writeWebReqChunk(data[numBytes:e], numBytes, totalBytes)
-        except:
-            break
+    totalBytes = data.seek(0,2)
+    data.seek(0,0)
 
-        numBytes = e
-
-
-def sendBytesBinary(data):
-    
-
-    totalBytes = len(data)
     bytesSent = 0
-
-    req = webReq
-    req["binary"]=True
-    req['total'] = totalBytes
-
     while bytesSent < totalBytes:
         binary_helpers.binary_store_reset(card)
         rsp = sendRequest("card.binary")
         max = rsp.get("max", 0)
-        ind = min(bytesSent + max, totalBytes)
+        # bufferSize = min(max, totalBytes-bytesSent)
+        buffer = bytearray(max)
+        numBytes = data.readinto(buffer)
 
-        binary_helpers.binary_store_transmit(card, data[bytesSent:ind], 0)
-        req['offset'] = bytesSent
+        binary_helpers.binary_store_transmit(card, buffer[0:numBytes], 0)
+        
+        writeWebReqBinary(bytesSent, totalBytes)
 
-        rsp = sendRequest(req)
-
-        if rsp.get("result", 300) >= 300:
-            msg = rsp.get('body', {}).get('err', 'unknown')
-            raise Exception("Web Request Error: " + msg)
-
-        bytesSent += ind
+        bytesSent += numBytes
 
 
+def sendBytesBase64Payload(data: io.IOBase, chunk_size=opts.chunk_size):
+    buffer = bytearray(chunk_size)
+
+    totalBytes = data.seek(0,2)
+    data.seek(0,0)
+
+    bytesSent = 0
+    while bytesSent < totalBytes:
+        numBytes = data.readinto(buffer)
+
+        writeWebReqPayload(buffer[0:numBytes], bytesSent, totalBytes)
+
+        bytesSent += numBytes
 
 
 
-def sendFileBytes(filename):
-    logging.info(f"Using file: {filename}")
-    
-    with open(filename, 'rb') as p:
-        p.seek(0, 2)
-        totalBytes = p.tell()
-        p.seek(0,0)
 
-        keepReading = True
-        s = 0
-        numBytes = 0
-        while keepReading:
-            payload = p.read(opts.chunk_size)
-            numPayloadBytes = len(payload) 
-            keepReading = numPayloadBytes >=opts.chunk_size
-            
-            
-            try:
-                writeWebReqChunk(payload, numBytes, totalBytes)
-            except:
-                break
-
-            
-            numBytes += numPayloadBytes
-             
-    
-    logging.info(f"Payload Size: {numBytes/1024} KB.")
             
 
 def waitForConnection():
@@ -262,14 +240,18 @@ if opts.wait_for_connection or use_temp_continuous:
     logging.info(f"Waiting for Notehub connection")
     waitForConnection()
 
+sendFcn = sendBytesBinary if using_binary else sendBytesBase64Payload
+
 startTime = 0
 if using_file:
-    startTime = time.time()
-    sendFileBytes(opts.file)
-    endTime = time.time()
+    with open(opts.file, 'rb') as f:
+        startTime = time.time()
+        sendFcn(f)
+        endTime = time.time()
 else:
+    data = generateTestData(opts.test_size)
     startTime = time.time()
-    sendTestBytes(opts.test_size, opts.chunk_size)
+    sendFcn(data)
     endTime = time.time()
 
 
