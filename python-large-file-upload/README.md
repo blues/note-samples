@@ -139,7 +139,7 @@ While it appears to be fewer steps, the number of iterations to complete the ent
 For large binary blobs, the difference in upload time is substantial.
 
 
-## Updating the note-python SDK
+## Updating the _note-python SDK_
 
 As of version v1.4.4 of the _note-python SDK_, the `card.binary` convenience functions are not available in the SDK.  Therefore, using `pip install note-python` may result in an SDK version that is incompatible with this example.
 
@@ -157,6 +157,7 @@ The folder structure should appear as
 ``` text
 > .
   > .venv (folder for Virtual Environments in Python)
+  > doc
   > notecard
   .gitignore
   main.py
