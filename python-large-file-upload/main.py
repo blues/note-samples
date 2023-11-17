@@ -19,9 +19,6 @@ DEFAULT_CONNECTION_TIMEOUT_SECS = 90
 ## Function to parse command-line arguments
 def parseCommandLineArgs():
 
-    def str2bool(v):
-        return v.lower() in ["true", "t", "1", "on", "yes", "y"]
-
     DESCRIPTION = """Example for uploading larger files and data to the cloud
     
     """
@@ -35,12 +32,13 @@ def parseCommandLineArgs():
     p.add("-r", "--route", help="Name of route Notecard web request transactions will use", default=DEFAULT_ROUTE_NAME)
     p.add("-f", "--file", help="File to use as data source for transfer", required=True)
     p.add("-c", "--connection-timeout", help="Time in seconds to wait for Notecard to connect to Notehub before throwing exception", default=DEFAULT_CONNECTION_TIMEOUT_SECS, type=int)
-    p.add("-d", "--debug", help="Log debug messages", default=DEFAULT_DEBUG, type=lambda x:bool(str2bool(x)),nargs='?',const=True)
-    p.add("-lf", "--log-folder", help="Directory where log files are stored", default=DEFAULT_LOG_FOLDER, env_var="LOG_FOLDER")
+    p.add("-d", "--debug", help="Log debug messages", action='store_true')
+    p.add("-l", "--log-folder", help="Directory where log files are stored", default=DEFAULT_LOG_FOLDER, env_var="LOG_FOLDER")
     p.add("-m", "--mode", help="Notecard connection mode to Notehub (continuous, periodic, minimum)")
     p.add("-u", "--product-uid", help="Notehub Product UID (com.company.name.project)", env_var="PRODUCT_UID")
     p.add("-t", "--timeout", help="Web request timeout in seconds", default=DEFAULT_WEB_REQUEST_TIMEOUT, type=int)
-    p.add("-e", "--measure-elapsed-time", help="Measure how long the file transfer process takes", default=DEFAULT_MEASURE_TRANSFER_TIME, type=lambda x:bool(str2bool(x)),nargs='?',const=True )
+    p.add("-e", "--measure-elapsed-time", help="Measure how long the file transfer process takes", action='store_true')
+    p.add("--legacy", help="Use legacy method to upload file. Uses base64 encoding in web transaction payloads", action='store_true')
     
 
     opts = p.parse_args()
@@ -116,8 +114,10 @@ def main():
         sendRequest(card, "hub.set", opts.hub_config)
         logging.info(f"HUB config: {opts.hub_config}")
 
-    uploader = notecardDataTransfer.BinaryDataUploader(card, opts.route, printFcn=logging.debug, timeout=opts.timeout)
-
+    uploader = (notecardDataTransfer.BinaryDataUploaderLegacy(card, opts.route, printFcn=logging.debug, timeout=opts.timeout)
+                if opts.legacy
+                else notecardDataTransfer.BinaryDataUploader(card, opts.route, printFcn=logging.debug, timeout=opts.timeout))
+    
     startTime = 0
     fileSizeInBytes = 0
     with open(opts.file, 'rb') as f:

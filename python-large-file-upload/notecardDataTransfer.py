@@ -2,6 +2,7 @@ from notecard import binary_helpers
 import time
 import io
 
+
 DEFAULT_WEB_TRANSACTION_TIMEOUT_SEC = 30
 
 
@@ -109,5 +110,51 @@ class BinaryDataUploader:
         self._sendRequest(req)
 
 
+import binascii
+class BinaryDataUploaderLegacy(BinaryDataUploader):
+    webReqRoot = {"req":"web.post",
+                "seconds": DEFAULT_WEB_TRANSACTION_TIMEOUT_SEC,
+                "payload": '',
+                "route": '',
+                "offset":0,
+                "total":0
+                }
+    chunk_size = 1024
+    def upload(self, data:io.BytesIO):
+        if self.SetTemporaryContinuousMode:
+            self._setTempContinuousMode()
+        
+        if self.WaitForConnection:
+            self._print(f"Waiting for Notehub connection")
+            self._waitForConnection()
 
+        self._sendBytesBase64Payload(data)
+
+        if self.SetTemporaryContinuousMode:
+            self._unsetTempContinuousMode()
+
+    def _sendBytesBase64Payload(self, data: io.IOBase):
+        buffer = bytearray(self.chunk_size)
+
+        totalBytes = data.seek(0,2)
+        data.seek(0,0)
+
+        bytesSent = 0
+        while bytesSent < totalBytes:
+            numBytes = data.readinto(buffer)
+
+            self._writeWebReqPayload(buffer[0:numBytes], bytesSent, totalBytes)
+
+            bytesSent += numBytes
+
+    def _writeWebReqPayload(self, payload, offset, total):
+        webReq = self.webReqRoot
+        webReq['payload'] = str(binascii.b2a_base64(bytes(payload))[:-1], 'utf-8')
+        webReq['offset'] = offset
+        webReq['total'] = total
+        rsp = self._sendRequest(webReq)
+
+        if rsp.get("result", 300) >= 300:
+            msg = rsp.get('body', {}).get('err', 'unknown')
+            raise Exception("Web Request Error: " + msg)
 
