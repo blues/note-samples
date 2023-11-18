@@ -7,8 +7,7 @@ For more information on large data transfer with Notecard, visit the following d
 
 |Important|
 |---|
-|For Notecard firmware with versions less than 5.3.1, this example requires using the legacy method of encoding the file content in base64. See [Command-line Options](#Command-line-Options)|
-
+|For Notecard firmware with versions less than 5.3.1, this example requires using the legacy method of encoding the file content in base64. See [Command-line Options](#command-line-options)|
 
 ## Hardware Setup
 
@@ -85,9 +84,7 @@ For more information on large data transfer with Notecard, visit the following d
 > python main.py -u MY_PRODUCT_UID -f MY_FILE_PATH -p /dev/cu.usbmodemNOTE1
 ```
 
-::: info
 While not required, the `-u` argument is recommended to set the Notecard Product UID. Without the correct Product UID, the Notecard may fail to connect to the network, or may connect to different Notehub project than you expect.
-:::
 
 ### Command-line Options
 
