@@ -5,9 +5,10 @@ This sample shows how to use the Notecard to upload a large file using the `card
 For more information on large data transfer with Notecard, visit the following documentation guide
 [Sending and Receiving Large Binary Objects](https://dev.blues.io/guides-and-tutorials/notecard-guides/sending-and-receiving-large-binary-objects/)
 
-::: info
-For Notecard firmware with versions less than 5.3.1, this example can support the legacy method of encoding the file content in base64
-:::
+|Important|
+|---|
+|For Notecard firmware with versions less than 5.3.1, this example requires using the legacy method of encoding the file content in base64. See [Command-line Options](#Command-line-Options)|
+
 
 ## Hardware Setup
 
@@ -27,7 +28,7 @@ For Notecard firmware with versions less than 5.3.1, this example can support th
 | | |
 |---|---|
 |Notecard Interface Options| {USB, UART[^2]}|
-|Default Notecard Interface| UART*|
+|Default Notecard Interface| UART[^2]|
 |Platform| Linux|
 |Python version| Python3 |
 
@@ -147,7 +148,7 @@ The _note-python_ core module is included in the `notecard` folder in this repos
 
 1. Download the ZIP-file from the [note-python](https://github.com/blues/note-python) repository on Github
 
-    ![How to download ZIP on Github](github_download_zip.png)
+    ![How to download ZIP on Github](doc/github_download_zip.png)
 
 2. Extract the ZIP-file
 3. Move the `notecard` folder from the ZIP-file to the folder containing this README.md file
