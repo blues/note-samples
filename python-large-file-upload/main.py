@@ -48,7 +48,7 @@ def parseCommandLineArgs():
         hub_config['sync'] = True
 
     if opts.product_uid:
-        hub_config['product'] = opts
+        hub_config['product'] = opts.product_uid
 
     opts.hub_config = None if hub_config=={} else hub_config
 
