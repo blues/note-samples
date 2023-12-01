@@ -47,6 +47,10 @@ The JSON structure of the Templated Note outlined in this example
 
 ```
 
+The content of the `array` field will be populated with the measurement data. Notice each measurement must have it's own timestamp if you are tracking when the measurement occurs.
+
+For this example, the timestamp is generated for each measurement using the `card.time` Notecard request.  If the Notecard does not have a valid timestamp, the measurement recording is skipped.
+
 ### Request Object Deletion on Send
 
 The Arduino Notecard API uses `malloc` by default to construct the JSON object in the heap memory.  
