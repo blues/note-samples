@@ -16,7 +16,7 @@ def test_getEventData():
             # set fake content
             mock_request.return_value.content = getTestResponse()
 
-            d = notehub.getEventData(pin, deviceId, since=cursorID)
+            d = notehub.getEventData(pin, deviceId, cursor=cursorID)
 
             assert d == json.loads(getTestResponse())
 
@@ -49,7 +49,7 @@ def test_getEventData_cursorIsAppendedToQueryString():
             # set fake content
             mock_request.return_value.content = '{"abc":"def"}'
 
-            d = notehub.getEventData(pin, deviceId,since=cursorID)
+            d = notehub.getEventData(pin, deviceId,cursor=cursorID)
 
             urlUsed = mock_request.call_args[0][0]
             assert '&cursor=abcd' in urlUsed
@@ -66,7 +66,7 @@ def test_getEventData_limitIsAppendedToQueryString():
             # set fake content
             mock_request.return_value.content = '{"abc":"def"}'
 
-            d = notehub.getEventData(pin, deviceId,pageSize=limit)
+            d = notehub.getEventData(pin, deviceId,limit=limit)
 
             urlUsed = mock_request.call_args[0][0]
             assert '&limit=17' in urlUsed
@@ -83,7 +83,7 @@ def test_getEventData_deviceIdIsAppendedToQueryString():
             # set fake content
             mock_request.return_value.content = '{"abc":"def"}'
 
-            d = notehub.getEventData(pin, deviceId,pageSize=pageSize)
+            d = notehub.getEventData(pin, deviceId,limit=pageSize)
 
             urlUsed = mock_request.call_args[0][0]
             assert 'deviceUID=dev:864475044207255' in urlUsed
@@ -144,7 +144,7 @@ def test_migrateAirnoteData_usesLastEventInfoForNextRequest():
             ]
             m = Mock()
             notehub.migrateAirnoteData(pin, deviceId, migrateFunc=m)
-            mock_getEventData.assert_called_with(pin, deviceId, since='abcd',pageSize=50)
+            mock_getEventData.assert_called_with(pin, deviceId, cursor='abcd',limit=50)
 
 
 def test_migrateAirnoteData_hasMoreFails():
