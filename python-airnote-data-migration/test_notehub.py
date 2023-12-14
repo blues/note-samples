@@ -8,7 +8,7 @@ def test_getEventData():
     
     pin = "12345"
     deviceId = "dev:864475044207255"
-    sinceEvent = "3a531360-577c-447f-b01f-d902014e6a36"
+    cursorID = "3a531360-577c-447f-b01f-d902014e6a36"
 
     with patch('requests.get') as mock_request:
             
@@ -16,9 +16,25 @@ def test_getEventData():
             # set fake content
             mock_request.return_value.content = getTestResponse()
 
-            d = notehub.getEventData(pin, deviceId, since=sinceEvent)
+            d = notehub.getEventData(pin, deviceId, cursor=cursorID)
 
             assert d == json.loads(getTestResponse())
+
+def test_getEventData_callsCorrectEndpoint():
+    
+    pin = "12345"
+    deviceId = "dev:864475044207255"
+    
+    with patch('requests.get') as mock_request:
+            
+
+            # set fake content
+            mock_request.return_value.content = getTestResponse()
+
+            d = notehub.getEventData(pin, deviceId)
+
+            urlUsed = mock_request.call_args[0][0]
+            assert '/events-cursor?' in urlUsed
 
 def test_getEventData_numericPin():
     
@@ -37,11 +53,11 @@ def test_getEventData_numericPin():
             assert '12345' in header.values()
 
 
-def test_getEventData_sinceIsAppendedToQueryString():
+def test_getEventData_cursorIsAppendedToQueryString():
     
     pin = 12345
     deviceId = "dev:864475044207255"
-    since = 'abcd'
+    cursorID = 'abcd'
 
     with patch('requests.get') as mock_request:
             
@@ -49,16 +65,16 @@ def test_getEventData_sinceIsAppendedToQueryString():
             # set fake content
             mock_request.return_value.content = '{"abc":"def"}'
 
-            d = notehub.getEventData(pin, deviceId,since=since)
+            d = notehub.getEventData(pin, deviceId,cursor=cursorID)
 
             urlUsed = mock_request.call_args[0][0]
-            assert '&since=abcd' in urlUsed
+            assert '&cursor=abcd' in urlUsed
 
-def test_getEventData_pageSizeIsAppendedToQueryString():
+def test_getEventData_limitIsAppendedToQueryString():
     
     pin = 12345
     deviceId = "dev:864475044207255"
-    pageSize = 17
+    limit = 17
 
     with patch('requests.get') as mock_request:
             
@@ -66,16 +82,16 @@ def test_getEventData_pageSizeIsAppendedToQueryString():
             # set fake content
             mock_request.return_value.content = '{"abc":"def"}'
 
-            d = notehub.getEventData(pin, deviceId,pageSize=pageSize)
+            d = notehub.getEventData(pin, deviceId,limit=limit)
 
             urlUsed = mock_request.call_args[0][0]
-            assert '&pageSize=17' in urlUsed
+            assert '&limit=17' in urlUsed
 
 def test_getEventData_deviceIdIsAppendedToQueryString():
     
     pin = 12345
     deviceId = "dev:864475044207255"
-    pageSize = 17
+    limit = 17
 
     with patch('requests.get') as mock_request:
             
@@ -83,10 +99,44 @@ def test_getEventData_deviceIdIsAppendedToQueryString():
             # set fake content
             mock_request.return_value.content = '{"abc":"def"}'
 
-            d = notehub.getEventData(pin, deviceId,pageSize=pageSize)
+            d = notehub.getEventData(pin, deviceId,limit=limit)
 
             urlUsed = mock_request.call_args[0][0]
-            assert 'deviceUIDs=dev:864475044207255' in urlUsed
+            assert 'deviceUID=dev:864475044207255' in urlUsed
+
+def test_getEventData_fileIsAppendedToQueryString():
+    
+    pin = 12345
+    deviceId = "dev:864475044207255"
+    files = "my_file.qo"
+
+    with patch('requests.get') as mock_request:
+            
+
+            # set fake content
+            mock_request.return_value.content = '{"abc":"def"}'
+
+            d = notehub.getEventData(pin, deviceId,files=files)
+
+            urlUsed = mock_request.call_args[0][0]
+            assert 'files=my_file.qo' in urlUsed
+
+def test_getEventData_multipleFilesAppendedToQueryString():
+    
+    pin = 12345
+    deviceId = "dev:864475044207255"
+    files = ["file1", "file2"]
+
+    with patch('requests.get') as mock_request:
+            
+
+            # set fake content
+            mock_request.return_value.content = '{"abc":"def"}'
+
+            d = notehub.getEventData(pin, deviceId,files=files)
+
+            urlUsed = mock_request.call_args[0][0]
+            assert 'files=file1,file2' in urlUsed
     
 def test_migrateAirnoteData():
     
@@ -110,10 +160,10 @@ def test_migrateAirnoteData_multipleEvents():
 
     with patch('notehub.getEventData') as mock_getEventData:
             
-            mock_getEventData.return_value = {"has_more":False,"through":"abcd","events":[{"file":"_air.qo"},{"file":"_air.qo"},{"file":"other.qo"}]}
-            m = Mock()
-            notehub.migrateAirnoteData(pin, deviceId, migrateFunc=m)
-            assert m.call_count == 2
+            mock_getEventData.return_value = {"has_more":False,"next_cursor":"","events":[{"file":"_air.qo"},{"file":"_air.qo"}]}
+            migrateFcn = Mock()
+            notehub.migrateAirnoteData(pin, deviceId, migrateFunc=migrateFcn)
+            assert migrateFcn.call_count == 2
 
 
 def test_migrateAirnoteData_multipleApiCalls():
@@ -124,8 +174,8 @@ def test_migrateAirnoteData_multipleApiCalls():
     with patch('notehub.getEventData') as mock_getEventData:
             
             mock_getEventData.side_effect = [
-                {"has_more":True,"through":"abcd","events":[{"file":"_air.qo"}]},
-                {"has_more":False,"through":"defg","events":[{"file":"_air.qo"}]},
+                {"has_more":True,"next_cursor":"abcd","events":[{"file":"_air.qo"}]},
+                {"has_more":False,"next_cursor":"","events":[{"file":"_air.qo"}]},
             ]
             m = Mock()
             notehub.migrateAirnoteData(pin, deviceId, migrateFunc=m)
@@ -139,12 +189,12 @@ def test_migrateAirnoteData_usesLastEventInfoForNextRequest():
     with patch('notehub.getEventData') as mock_getEventData:
             
             mock_getEventData.side_effect = [
-                {"has_more":True,"through":"abcd","events":[{"file":"_air.qo"}]},
-                {"has_more":False,"through":"defg","events":[{"file":"_air.qo"}]},
+                {"has_more":True,"next_cursor":"abcd","events":[{"file":"_air.qo"}]},
+                {"has_more":False,"next_cursor":"","events":[{"file":"_air.qo"}]},
             ]
             m = Mock()
             notehub.migrateAirnoteData(pin, deviceId, migrateFunc=m)
-            mock_getEventData.assert_called_with(pin, deviceId, since='abcd',pageSize=50)
+            mock_getEventData.assert_called_with(pin, deviceId, cursor='abcd',limit=50, files="_air.qo")
 
 
 def test_migrateAirnoteData_hasMoreFails():
@@ -155,7 +205,7 @@ def test_migrateAirnoteData_hasMoreFails():
     with patch('notehub.getEventData') as mock_getEventData:
             
             mock_getEventData.side_effect = [
-                {"through":"defg","events":[{"file":"_air.qo"}]},
+                {"next_cursor":"defg","events":[{"file":"_air.qo"}]},
             ]
             m = Mock()
             notehub.migrateAirnoteData(pin, deviceId, migrateFunc=m)
@@ -170,8 +220,8 @@ def test_migrateAirnoteData_maxCalls():
     with patch('notehub.getEventData') as mock_getEventData:
             
             mock_getEventData.side_effect = [
-                {"has_more":True,"through":"abcd","events":[{"file":"_air.qo"}]},
-                {"has_more":False,"through":"defg","events":[{"file":"_air.qo"}]},
+                {"has_more":True,"next_cursor":"abcd","events":[{"file":"_air.qo"}]},
+                {"has_more":False,"next_cursor":"","events":[{"file":"_air.qo"}]},
             ]
             m = Mock()
             notehub.migrateAirnoteData(pin, deviceId, migrateFunc=m, max_requests=1)
@@ -198,7 +248,7 @@ def responseWithOneEventAndNoMoreWaiting():
                 
             ],
             "has_more":false,
-            "through":"49b8fcf4-c439-4177-a5a4-39bbe3ded4a9"
+            "next_cursor":""
         }'''
     return r
 
@@ -207,7 +257,7 @@ def responseWithOneEventAndNoMoreWaiting():
 def getTestResponse():
     r = '''
     {
-        "through": "ee0f7c1b-754c-4a4b-84fe-07cf3d96ec53",
+        "next_cursor": "ee0f7c1b-754c-4a4b-84fe-07cf3d96ec53",
         "has_more": true,
         "events": [
             {
@@ -228,6 +278,56 @@ def getTestResponse():
                     }
                 }
            },
+            {
+                "event": "7c83b38b-bf3d-460d-bbbd-d8e90cdabff4",
+                "device": "dev:864475044207255",
+                "file": "_air.qo",
+                "when": 1577841940,
+                "body": {
+                    "csecs": 482,
+                    "motion": 45,
+                    "sensor": "lnd712",
+                    "temperature": 0.01,
+                    "voltage": 3.9765625
+                }
+            },
+            {
+                "event": "3447589a-9724-43fd-92e2-e590fe28e603",
+                "device": "dev:864475044207255",
+                "file": "_air.qo",
+                "when": 1577841940,
+                "body": {
+                    "csecs": 484,
+                    "motion": 31,
+                    "sensor": "lnd712",
+                    "temperature": 0.01,
+                    "voltage": 3.9667969
+                }
+            },
+            {
+                "event": "49b8fcf4-c439-4177-a5a4-39bbe3ded4a9",
+                "device": "dev:864475044207255",
+                "file": "_air.qo",
+                "when": 1577841940,
+                "body": {
+                    "csecs": 484,
+                    "sensor": "lnd712",
+                    "temperature": 0.01,
+                    "voltage": 3.9785156
+                }
+            }
+        ]
+    }'''
+
+    return r
+
+
+def getTestResponseAirQO():
+    r = '''
+    {
+        "next_cursor": "ee0f7c1b-754c-4a4b-84fe-07cf3d96ec53",
+        "has_more": true,
+        "events": [
             {
                 "event": "7c83b38b-bf3d-460d-bbbd-d8e90cdabff4",
                 "device": "dev:864475044207255",

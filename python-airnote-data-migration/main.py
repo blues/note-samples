@@ -22,7 +22,7 @@ def migrateDeviceData(max_requests=10):
     devices = store.getDeviceList()
     for d in devices:
         lastEvent = store.getLastEventId(d)
-        notehub.migrateAirnoteData(pin, d, migrateFunc=migrateDataToDb, since=lastEvent,max_requests=max_requests)
+        notehub.migrateAirnoteData(pin, d, migrateFunc=migrateDataToDb, cursor=lastEvent,max_requests=max_requests)
 
 
 def getCommandLineArgs():
