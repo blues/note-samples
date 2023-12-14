@@ -194,7 +194,7 @@ def test_migrateAirnoteData_usesLastEventInfoForNextRequest():
             ]
             m = Mock()
             notehub.migrateAirnoteData(pin, deviceId, migrateFunc=m)
-            mock_getEventData.assert_called_with(pin, deviceId, cursor='abcd',limit=50)
+            mock_getEventData.assert_called_with(pin, deviceId, cursor='abcd',limit=50, files="_air.qo")
 
 
 def test_migrateAirnoteData_hasMoreFails():
