@@ -20,6 +20,22 @@ def test_getEventData():
 
             assert d == json.loads(getTestResponse())
 
+def test_getEventData_callsCorrectEndpoint():
+    
+    pin = "12345"
+    deviceId = "dev:864475044207255"
+    
+    with patch('requests.get') as mock_request:
+            
+
+            # set fake content
+            mock_request.return_value.content = getTestResponse()
+
+            d = notehub.getEventData(pin, deviceId)
+
+            urlUsed = mock_request.call_args[0][0]
+            assert '/events-cursor?' in urlUsed
+
 def test_getEventData_numericPin():
     
     pin = 12345
@@ -75,7 +91,7 @@ def test_getEventData_deviceIdIsAppendedToQueryString():
     
     pin = 12345
     deviceId = "dev:864475044207255"
-    pageSize = 17
+    limit = 17
 
     with patch('requests.get') as mock_request:
             
@@ -83,10 +99,44 @@ def test_getEventData_deviceIdIsAppendedToQueryString():
             # set fake content
             mock_request.return_value.content = '{"abc":"def"}'
 
-            d = notehub.getEventData(pin, deviceId,limit=pageSize)
+            d = notehub.getEventData(pin, deviceId,limit=limit)
 
             urlUsed = mock_request.call_args[0][0]
             assert 'deviceUID=dev:864475044207255' in urlUsed
+
+def test_getEventData_fileIsAppendedToQueryString():
+    
+    pin = 12345
+    deviceId = "dev:864475044207255"
+    files = "my_file.qo"
+
+    with patch('requests.get') as mock_request:
+            
+
+            # set fake content
+            mock_request.return_value.content = '{"abc":"def"}'
+
+            d = notehub.getEventData(pin, deviceId,files=files)
+
+            urlUsed = mock_request.call_args[0][0]
+            assert 'files=my_file.qo' in urlUsed
+
+def test_getEventData_multipleFilesAppendedToQueryString():
+    
+    pin = 12345
+    deviceId = "dev:864475044207255"
+    files = ["file1", "file2"]
+
+    with patch('requests.get') as mock_request:
+            
+
+            # set fake content
+            mock_request.return_value.content = '{"abc":"def"}'
+
+            d = notehub.getEventData(pin, deviceId,files=files)
+
+            urlUsed = mock_request.call_args[0][0]
+            assert 'files=file1,file2' in urlUsed
     
 def test_migrateAirnoteData():
     
@@ -110,10 +160,10 @@ def test_migrateAirnoteData_multipleEvents():
 
     with patch('notehub.getEventData') as mock_getEventData:
             
-            mock_getEventData.return_value = {"has_more":False,"next_cursor":"","events":[{"file":"_air.qo"},{"file":"_air.qo"},{"file":"other.qo"}]}
-            m = Mock()
-            notehub.migrateAirnoteData(pin, deviceId, migrateFunc=m)
-            assert m.call_count == 2
+            mock_getEventData.return_value = {"has_more":False,"next_cursor":"","events":[{"file":"_air.qo"},{"file":"_air.qo"}]}
+            migrateFcn = Mock()
+            notehub.migrateAirnoteData(pin, deviceId, migrateFunc=migrateFcn)
+            assert migrateFcn.call_count == 2
 
 
 def test_migrateAirnoteData_multipleApiCalls():
@@ -228,6 +278,56 @@ def getTestResponse():
                     }
                 }
            },
+            {
+                "event": "7c83b38b-bf3d-460d-bbbd-d8e90cdabff4",
+                "device": "dev:864475044207255",
+                "file": "_air.qo",
+                "when": 1577841940,
+                "body": {
+                    "csecs": 482,
+                    "motion": 45,
+                    "sensor": "lnd712",
+                    "temperature": 0.01,
+                    "voltage": 3.9765625
+                }
+            },
+            {
+                "event": "3447589a-9724-43fd-92e2-e590fe28e603",
+                "device": "dev:864475044207255",
+                "file": "_air.qo",
+                "when": 1577841940,
+                "body": {
+                    "csecs": 484,
+                    "motion": 31,
+                    "sensor": "lnd712",
+                    "temperature": 0.01,
+                    "voltage": 3.9667969
+                }
+            },
+            {
+                "event": "49b8fcf4-c439-4177-a5a4-39bbe3ded4a9",
+                "device": "dev:864475044207255",
+                "file": "_air.qo",
+                "when": 1577841940,
+                "body": {
+                    "csecs": 484,
+                    "sensor": "lnd712",
+                    "temperature": 0.01,
+                    "voltage": 3.9785156
+                }
+            }
+        ]
+    }'''
+
+    return r
+
+
+def getTestResponseAirQO():
+    r = '''
+    {
+        "next_cursor": "ee0f7c1b-754c-4a4b-84fe-07cf3d96ec53",
+        "has_more": true,
+        "events": [
             {
                 "event": "7c83b38b-bf3d-460d-bbbd-d8e90cdabff4",
                 "device": "dev:864475044207255",
