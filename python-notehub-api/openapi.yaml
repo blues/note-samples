@@ -1,0 +1,3747 @@
+---
+openapi: "3.0.3"
+
+info:
+  title: Notehub API
+  version: 1.0.0
+  description: |
+    The OpenAPI definition for the Notehub.io API.
+  contact:
+    name: Blues Engineering
+    email: engineering@blues.io
+    url: https://dev.blues.io/support/
+    # TODO
+    # license:
+    # termsOfService: https://notehub.io/subscription-agreement (?)
+
+externalDocs:
+  description: Find out more about Blues
+  url: https://blues.io
+
+servers:
+  - url: https://api.notefile.net
+    description: Production server
+
+tags:
+  - name: authorization
+    description: Authorization operations
+  - name: route
+    description: Route operations
+  - name: project
+    description: Project operations
+  - name: product
+    description: Product operations
+  - name: fleet
+    description: Fleet operations
+  - name: event
+    description: Event retrieval operations
+  - name: devices
+    description: Multi device operations
+  - name: device
+    description: Single device operations
+  - name: environment_variables
+    description: Operations on Environment Variables
+  - name: billing_account
+    description: Billing Account operations
+  - name: notes
+    description: Management of notes in notefiles
+  - name: files
+    description: Management of notefiles
+
+paths:
+
+  /auth/login:
+    post:
+      tags: [authorization]
+      operationId: login
+      description: Gets a session token from the API from a username and
+                   password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+            example:
+              username: name@example.com
+              password: test-password
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_token:
+                    type: string
+        "400":
+          description: Bad Request
+        # NOTE: We're already within `post`, so 405 should not occur here.
+        "500":
+          description: Internal Server Error
+
+  /v1/projects/{projectUID}/routes:
+    get:
+      tags: ["route"]
+      operationId: getRoutes
+      description: Get all Routes within a Project
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserDbRoute'
+                minItems: 0
+              example: [
+                {
+                  "uid": "route:8d65a087d5d290ce5bdf03aeff2becc0",
+                  "label": "success route",
+                  "type": "http",
+                  "modified": "2020-03-09T17:58:37Z",
+                  "disabled": false
+                },
+                {
+                  "uid": "route:a9eaad31d5cee8d01a42762f71fb777a",
+                  "label": "failing route",
+                  "type": "http",
+                  "modified": "2020-03-09T17:59:15Z",
+                  "disabled": false
+                },
+                {
+                  "uid": "route:02ddc0e6e236c2a7e482da62047229ad",
+                  "label": "disabled route",
+                  "type": "http",
+                  "modified": "2020-03-09T17:59:44Z",
+                  "disabled": true
+                },
+                {
+                  "uid": "route:0ac565deb7b478a250bb82348b9cfdd4",
+                  "label": "Proxy Route",
+                  "type": "proxy",
+                  "modified": "2020-03-09T17:58:36Z",
+                  "disabled": false
+                },
+                {
+                  "uid": "route:fb1b9e0aba1bf030311ba2c3c1e3efd7",
+                  "label": "Myjsonlive Webtest",
+                  "type": "proxy",
+                  "modified": "2020-03-09T17:58:35Z",
+                  "disabled": false
+                },
+                {
+                  "uid": "route:7804818f84a3be6193e14d804fe7fca7",
+                  "label": "Myjsonlive Echo",
+                  "type": "proxy",
+                  "modified": "2020-03-09T17:58:34Z",
+                  "disabled": false
+                }
+              ]
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      tags: ["route"]
+      operationId: createRoute
+      description: Create Route within a Project
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+      requestBody:
+        description: Route to be Created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Route'
+            example: >
+              {
+                "label": "Route Label",
+                "type":"http",
+                "http": {
+                  "fleets": ["fleet:1042ddc5-3b2c-4cec-b1fb-d3040538094d"],
+                  "throttle_ms": 100,
+                  "url": "http://route.url"
+                }
+              }
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+              example: {
+                "uid": "route:8d65a087d5d290ce5bdf03aeff2becc0",
+                "label": "Route Label",
+                "type": "http",
+                "modified": "2020-03-09T17:59:44Z",
+                "disabled": "false",
+                "http": {
+                  "fleets": ["fleet:1042ddc5-3b2c-4cec-b1fb-d3040538094d"],
+                  "filter": {
+                    "type": "",
+                    "system_notefiles": false,
+                  },
+                  "transform": {},
+                  "throttle_ms": 100,
+                  "url": "http://route.url",
+                  "http_headers": null,
+                  "disable_http_headers": false,
+                  "timeout": 0
+                }
+              }
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+
+  /v1/projects/{projectUID}/routes/{routeUID}:
+    get:
+      tags: ["route"]
+      operationId: getRoute
+      description: Get single route within a project
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/routeUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+              example: {
+                "uid": "route:8d65a087d5d290ce5bdf03aeff2becc0",
+                "label": "Route Label",
+                "type": "http",
+                "modified": "2020-03-09T17:59:44Z",
+                "disabled": "false",
+                "http": {
+                  "fleets": ["fleet:1042ddc5-3b2c-4cec-b1fb-d3040538094d"],
+                  "filter": {
+                    "type": "",
+                    "system_notefiles": false,
+                  },
+                  "transform": {},
+                  "throttle_ms": 100,
+                  "url": "http://route.url",
+                  "http_headers": null,
+                  "disable_http_headers": false,
+                  "timeout": 0
+                }
+              }
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    put:
+      tags: ["route"]
+      operationId: updateRoute
+      description: Update route by UID
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/routeUIDParam'
+      requestBody:
+        description: Route settings to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Route'
+            example: >
+              {
+                "http" {
+                  "filter": {
+                    "type": "include",
+                    "system_notefiles": true,
+                    "files": ["somefile.qo"],
+                  },
+                  "throttle_ms": 50,
+                  "url": "http://new-route.url",
+                },
+              }
+
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+              example: >
+                {
+                  "uid": "route:8d65a087d5d290ce5bdf03aeff2becc0",
+                  "label": "Route Label",
+                  "type": "http",
+                  "modified": "2020-03-09T17:59:44Z",
+                  "disabled": "false",
+                  "http":
+                    {
+                    "fleets": ["fleet:1042ddc5-3b2c-4cec-b1fb-d3040538094d"],
+                    "filter": {
+                      "type": "include",
+                      "system_notefiles": true,
+                      "files": ["somefile.qo"],
+                    },
+                  "transform": {},
+                  "throttle_ms": 50,
+                  "url": "http://new-route.url",
+                  "http_headers": null,
+                  "disable_http_headers": false,
+                  "timeout": 0
+                }
+
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    delete:
+      tags: ["route"]
+      operationId: deleteRoute
+      description: Delete single route within a project
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/routeUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                default: {}
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/routes/{routeUID}/route-logs:
+    get:
+      tags: ["route_logs"]
+      operationId: getRouteLogsByRoute
+      description: Get Route Logs by Route UID
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/routeUIDParam'
+        - $ref: '#/components/parameters/pageSizeParam'
+        - $ref: '#/components/parameters/pageNumParam'
+        - $ref: '#/components/parameters/deviceUIDParamQuery'
+        - $ref: '#/components/parameters/sortByParam'
+        - $ref: '#/components/parameters/sortOrderParam'
+        - $ref: '#/components/parameters/startDateParam'
+        - $ref: '#/components/parameters/endDateParam'
+        - $ref: '#/components/parameters/systemFilesOnlyParam'
+        - $ref: '#/components/parameters/filesParam'
+      responses:
+        "200":
+          $ref: '#/components/responses/RouteLogsResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/products/{productUID}/project:
+    get:
+      tags: ["project", "product"]
+      operationId: getProjectByProduct
+      description: Get a Project by ProductUID
+      security:
+        - api_key: []
+      parameters:
+        - name: productUID
+          in: path
+          required: true
+          schema:
+            type: string
+          example: com.blues.airnote
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/billing-accounts:
+    get:
+      tags: ["billing_account"]
+      operationId: getBillingAccounts
+      description: Get Billing Accounts accessible by the api_key
+      security:
+        - api_key: []
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  billing_accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BillingAccount'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects:
+    get:
+      tags: ["project"]
+      operationId: getProjects
+      description: Get Projects accessible by the api_key
+      security:
+        - api_key: []
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    post:
+      tags: ["project"]
+      operationId: createProject
+      description: Create a Project
+      security:
+        - api_key: []
+      requestBody:
+        description: Project to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  description: The label for the project.
+                billing_account_uid:
+                  type: string
+                  description: >
+                    The billing account UID for the project.
+                    The caller of the API must be able to create projects
+                    within the billing account, otherwise an error will be
+                    returned.
+              required:
+                - label
+                - billing_account_uid
+      responses:
+        "201":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/clone:
+    post:
+      tags: ["project"]
+      operationId: cloneProject
+      description: Clone a Project
+      security:
+        - api_key: []
+      parameters:
+        - name: projectUID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The project UID to be cloned.
+      requestBody:
+        description: Project to be cloned
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  description: The label for the project.
+                billing_account_uid:
+                  type: string
+                  description:
+                    The billing account UID for the project.
+                    The caller of the API must be able to create projects
+                    within the billing account, otherwise an error will be
+                    returned.
+                disable_clone_routes:
+                  type: boolean
+                  description: Whether to disallow the cloning of the routes from the parent project.  Default is false if not specified.
+                disable_clone_fleets:
+                  type: boolean
+                  description: Whether to disallow the cloning of the fleets from the parent project.  Default is false if not specified.
+              required:
+                - label
+                - billing_account_uid
+      responses:
+        "201":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}:
+    get:
+      tags: ["project"]
+      operationId: getProject
+      description: Get a Project by ProjectUID
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    delete:
+      tags: ["project"]
+      operationId: deleteProject
+      description: Delete a Project by ProjectUID
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/products:
+    parameters:
+      - $ref: '#/components/parameters/projectUIDParam'
+
+    get:
+      tags: ["project", "product"]
+      operationId: getProjectProducts
+      description: Get Products within a Project
+      security:
+        - api_key: []
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    post:
+      tags: ["project", "product"]
+      operationId: createProduct
+      description: Create Product within a Project
+      security:
+        - api_key: []
+      requestBody:
+        description: Product to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_uid:
+                  type: string
+                  description: The requested uid for the Product. Will be
+                               prefixed with the user's reversed email.
+                label:
+                  type: string
+                  description: The label for the Product.
+                auto_provision_fleets:
+                  type: array
+                  items:
+                    type: string
+                disable_devices_by_default:
+                  type: boolean
+                  description: If `true`, devices provisioned to this product
+                               will be automatically disabled by default.
+              required:
+                - product_uid
+                - label
+      responses:
+        "201":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/fleets:
+    parameters:
+      - $ref: '#/components/parameters/projectUIDParam'
+
+    get:
+      tags: ["fleet"]
+      operationId: getProjectFleets
+      description: Get Project Fleets
+      security:
+        - api_key: []
+      responses:
+        "200":
+          $ref: '#/components/responses/FleetsResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    post:
+      tags: ["fleet"]
+      operationId: createFleet
+      description: Create Fleet
+      security:
+        - api_key: []
+      requestBody:
+        description: Fleet to be added
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  description: The label for the Fleet.
+
+      responses:
+        "201":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fleet'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/fleets/{fleetUID}:
+    parameters:
+      - $ref: '#/components/parameters/projectUIDParam'
+      - $ref: '#/components/parameters/fleetUIDParam'
+
+    put:
+      tags: ["fleet"]
+      operationId: updateFleet
+      description: Update Fleet
+      security:
+        - api_key: []
+      requestBody:
+        description: Fleet details to update
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  description: The label for the Fleet.
+                addDevices:
+                  type: array
+                  items:
+                    type: string
+                  description: List of DeviceUIDs to add to fleet
+                removeDevices:
+                  type: array
+                  items:
+                    type: string
+                  description: List of DeviceUIDs to remove from fleet
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fleet'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    delete:
+      tags: ["fleet"]
+      operationId: deleteFleet
+      description: Delete Fleet
+      security:
+        - api_key: []
+      responses:
+        "204":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/members:
+    parameters:
+      - $ref: '#/components/parameters/projectUIDParam'
+
+    get:
+      tags: ["project"]
+      operationId: getProjectMembers
+      description: Get Project Members
+      security:
+        - api_key: []
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectMember'
+                required:
+                  - members
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # devices endpoints
+  /v1/projects/{projectUID}/devices:
+    get:
+      tags: ["project", "devices"]
+      operationId: getProjectDevices
+      description: Get Devices of a Project
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/pageSizeParam'
+        - $ref: '#/components/parameters/pageNumParam'
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+                  has_more:
+                    type: boolean
+                required:
+                  - devices
+                  - has_more
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/provision:
+    post:
+      tags: ["project", "devices"]
+      operationId: postProvisionProjectDevice
+      description: Provision Device for a Project
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      requestBody:
+        description: Provision a device to a specific ProductUID
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_uid:
+                  type: string
+                  description: The ProductUID that the device should use.
+                device_sn:
+                  type: string
+                  description: The serial number to assign to the device.
+              required:
+                - product_uid
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                default: {}
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/fleets/{fleetUID}/devices:
+    get:
+      tags: ["project", "fleet", "devices"]
+      operationId: getProjectFleetDevices
+      description: Get Devices of a Fleet within a Project
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/fleetUIDParam'
+        - $ref: '#/components/parameters/pageSizeParam'
+        - $ref: '#/components/parameters/pageNumParam'
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+                  has_more:
+                    type: boolean
+                required:
+                  - devices
+                  - has_more
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/public-keys:
+    get:
+      tags: ["project", "devices"]
+      operationId: getProjectDevicePublicKeys
+      description: Get Device Public Keys of a Project
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/pageSizeParam'
+        - $ref: '#/components/parameters/pageNumParam'
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device_public_keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        uid:
+                          type: string
+                        key:
+                          type: string
+                  has_more:
+                    type: boolean
+                required:
+                  - device_public_keys
+                  - has_more
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}:
+    parameters:
+      - $ref: '#/components/parameters/projectUIDParam'
+      - $ref: '#/components/parameters/deviceUIDParam'
+
+    get:
+      tags: ["devices"]
+      operationId: getDevice
+      description: Get Device
+      security:
+        - api_key: []
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    delete:
+      tags: ["devices"]
+      operationId: deleteProjectDevice
+      description: Delete Device
+      security:
+        - api_key: []
+      parameters:
+        - name: purge
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+            default: "false"
+
+      responses:
+        "204":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/fleets:
+    parameters:
+      - $ref: '#/components/parameters/projectUIDParam'
+      - $ref: '#/components/parameters/deviceUIDParam'
+
+    get:
+      tags: ["device", "fleet"]
+      operationId: getDeviceFleets
+      description: Get Device Fleets
+      security:
+        - api_key: []
+      responses:
+        "200":
+          $ref: '#/components/responses/FleetsResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    put:
+      tags: ["device", "fleet"]
+      operationId: putDeviceFleets
+      description: Add Device to Fleets
+      security:
+        - api_key: []
+      requestBody:
+        description: >
+          The fleets to add to the device.
+          Note that the endpoint takes an array of fleetUIDs,
+          to facilitate multi-fleet devices.
+          Multi-fleet is not yet enabled on all SaaS plans -
+          unless it is supported by the SaaS plan of the project,
+          passing more than a single fleetUID in the array is an error.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fleet_uids:
+                  type: array
+                  items:
+                    type: string
+                  description: The fleetUIDs to add to the device.
+              required:
+                - fleet_uids
+      responses:
+        "200":
+          $ref: '#/components/responses/FleetsResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    delete:
+      tags: ["device", "fleet"]
+      operationId: deleteDeviceFleets
+      description: Remove Device from Fleets
+      security:
+        - api_key: []
+      requestBody:
+        description: >
+          The fleets to remove from the device.
+          Note that the endpoint takes an array of fleetUIDs,
+          to facilitate multi-fleet devices.
+          Multi-fleet is not yet enabled on all SaaS plans -
+          unless it is supported by the SaaS plan of the project,
+          passing more than a single fleetUID in the array is an error.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fleet_uids:
+                  type: array
+                  items:
+                    type: string
+                  description: The fleetUIDs to remove from the device.
+              required:
+                - fleet_uids
+      responses:
+        "200":
+          $ref: '#/components/responses/FleetsResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/public-key:
+    get:
+      tags: ["device"]
+      operationId: getDevicePublicKey
+      description: Get Device Public Key
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uid:
+                    type: string
+                  key:
+                    type: string
+
+                required:
+                  - uid
+                  - key
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/latest:
+    get:
+      tags: ["device"]
+      operationId: getDeviceLatest
+      description: Get Device Latest Events
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      responses:
+        "200":
+          $ref: '#/components/responses/LatestResponse'
+
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/health-log:
+    get:
+      tags: ["device"]
+      operationId: getDeviceHealthLog
+      description: Get Device Health Log
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  health_log:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        when:
+                          type: string
+                          format: date-time
+                        alert:
+                          type: boolean
+                        text:
+                          type: string
+                      required:
+                        - when
+                        - alert
+                        - text
+                required:
+                  - health_log
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/enable:
+    post:
+      tags: ["device"]
+      operationId: enableDevice
+      description: Enable Device
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/disable:
+    post:
+      tags: ["device"]
+      operationId: disableDevice
+      description: Disable Device
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/enable-connectivity-assurance:
+    post:
+      tags: ["device"]
+      operationId: enableDeviceConnectivityAssurance
+      description: Enable Connectivity Assurance
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/disable-connectivity-assurance:
+    post:
+      tags: ["device"]
+      operationId: disableDeviceConnectivityAssurance
+      description: Disable Connectivity Assurance
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/sessions:
+    get:
+      tags: ["device"]
+      operationId: getDeviceSessions
+      description: Get Device Sessions
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+        - $ref: '#/components/parameters/pageSizeParam'
+        - $ref: '#/components/parameters/pageNumParam'
+      responses:
+        "200":
+          $ref: '#/components/responses/SessionResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/events:
+    get:
+      tags: ["project", "event"]
+      operationId: getProjectEvents
+      description: Get Events of a Project
+      security:
+        - api_key: []
+
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+
+        # query params
+        - $ref: '#/components/parameters/pageSizeParam'
+        - $ref: '#/components/parameters/pageNumParam'
+        - $ref: '#/components/parameters/deviceUIDParamQuery'
+        - $ref: '#/components/parameters/sortByParam'
+        - $ref: '#/components/parameters/sortOrderParam'
+        - $ref: '#/components/parameters/startDateParam'
+        - $ref: '#/components/parameters/endDateParam'
+        - $ref: '#/components/parameters/systemFilesOnlyParam'
+        - $ref: '#/components/parameters/filesParam'
+      responses:
+        "200":
+          $ref: '#/components/responses/EventsResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/events-cursor:
+    get:
+      tags: ["project", "event"]
+      operationId: getProjectEventsByCursor
+      description: Get Events of a Project by cursor
+      security:
+        - api_key: []
+
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+
+        # query params
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/cursorParam'
+        - $ref: '#/components/parameters/sortOrderParam'
+        - $ref: '#/components/parameters/systemFilesOnlyParam'
+        - $ref: '#/components/parameters/filesParam'
+        - $ref: '#/components/parameters/fleetUIDQueryParam'
+        - $ref: '#/components/parameters/deviceUIDParamQuery'
+      responses:
+        "200":
+          $ref: '#/components/responses/EventsByCursorResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/events/{eventUID}/route-logs:
+    get:
+      tags: ["route_logs"]
+      operationId: getRouteLogsByEvent
+      description: Get Route Logs by Event UID
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/eventUIDParam'
+      responses:
+        "200":
+          $ref: '#/components/responses/RouteLogsResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/fleets/{fleetUID}/events:
+    get:
+      tags: ["fleet", "event"]
+      operationId: getFleetEvents
+      description: Get Events of a Fleet
+      security:
+        - api_key: []
+
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/fleetUIDParam'
+
+        # query params
+        - $ref: '#/components/parameters/pageSizeParam'
+        - $ref: '#/components/parameters/pageNumParam'
+        - $ref: '#/components/parameters/deviceUIDParamQuery'
+        - $ref: '#/components/parameters/sortByParam'
+        - $ref: '#/components/parameters/sortOrderParam'
+        - $ref: '#/components/parameters/startDateParam'
+        - $ref: '#/components/parameters/endDateParam'
+        - $ref: '#/components/parameters/systemFilesOnlyParam'
+        - $ref: '#/components/parameters/filesParam'
+
+      responses:
+        "200":
+          $ref: '#/components/responses/EventsResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/fleets/{fleetUID}/events-cursor:
+    get:
+      tags: ["fleet", "event"]
+      operationId: getFleetEventsByCursor
+      description: Get Events of a Fleet by cursor
+      security:
+        - api_key: []
+
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/fleetUIDParam'
+
+        # query params
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/cursorParam'
+        - $ref: '#/components/parameters/sortOrderParam'
+        - $ref: '#/components/parameters/systemFilesOnlyParam'
+        - $ref: '#/components/parameters/filesParam'
+        - $ref: '#/components/parameters/deviceUIDParamQuery'
+        - $ref: '#/components/parameters/startDateParam'
+        - $ref: '#/components/parameters/endDateParam'
+
+      responses:
+        "200":
+          $ref: '#/components/responses/EventsByCursorResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # project environment variables
+  /v1/projects/{projectUID}/environment_variables:
+    parameters:
+      - $ref: '#/components/parameters/projectUIDParam'
+
+    get:
+      description: Get environment variables of a project
+      tags: ["project", "environment_variables"]
+      operationId: getProjectEnvironmentVariables
+      security:
+        - api_key: []
+      responses:
+        "200":
+          $ref: '#/components/responses/EnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    put:
+      description: Put environment variables of a project
+      tags: ["project", "environment_variables"]
+      operationId: putProjectEnvironmentVariables
+      security:
+        - api_key: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvironmentVariables'
+      responses:
+        "200":
+          $ref: '#/components/responses/EnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/environment_variables/{key}:
+    delete:
+      description: Delete an environment variable of a project by key
+      tags: ["project", "environment_variables"]
+      operationId: deleteProjectEnvironmentVariable
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The environment variable key to delete.
+      responses:
+        "200":
+          $ref: '#/components/responses/EnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/global-transformation/enable:
+    post:
+      description: Enable the project-level event JSONata transformation
+      tags: ["project"]
+      operationId: enableGlobalTransformation
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/global-transformation/disable:
+    post:
+      description: Disable the project-level event JSONata transformation
+      tags: ["project"]
+      operationId: disableGlobalTransformation
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+      responses:
+        "200":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/global-transformation:
+    post:
+      description: Set the project-level event JSONata transformation
+      tags: ["project"]
+      operationId: setGlobalTransformation
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+      requestBody:
+        description: JSONata expression which will be applied to each event before it is persisted and routed
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JSONata'
+      responses:
+        "200":
+          description: Successful operation
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # fleet environment variables
+  /v1/projects/{projectUID}/fleets/{fleetUID}/environment_variables:
+    parameters:
+      - $ref: '#/components/parameters/projectUIDParam'
+      - $ref: '#/components/parameters/fleetUIDParam'
+
+    get:
+      description: Get environment variables of a fleet
+      tags: ["fleet", "environment_variables"]
+      operationId: getFleetEnvironmentVariables
+      security:
+        - api_key: []
+      responses:
+        "200":
+          $ref: '#/components/responses/EnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+    put:
+      description: Put environment variables of a fleet
+      tags: ["fleet", "environment_variables"]
+      operationId: putFleetEnvironmentVariables
+      security:
+        - api_key: []
+      requestBody:
+        description: Environment variables to be added to the fleet
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvironmentVariables'
+      responses:
+        "200":
+          $ref: '#/components/responses/EnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/fleets/{fleetUID}/environment_variables/{key}:
+    delete:
+      description: Delete environment variables of a fleet
+      tags: ["fleet", "environment_variables"]
+      operationId: deleteFleetEnvironmentVariable
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/fleetUIDParam'
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The environment variable key to delete.
+      responses:
+        "200":
+          $ref: '#/components/responses/EnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/environment_variables:
+    parameters:
+      - $ref: '#/components/parameters/projectUIDParam'
+      - $ref: '#/components/parameters/deviceUIDParam'
+
+    get:
+      description: Get environment variables of a device
+      tags: ["device", "environment_variables"]
+      operationId: getDeviceEnvironmentVariables
+      security:
+        - api_key: []
+      responses:
+        "200":
+          $ref: '#/components/responses/GetDeviceEnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    put:
+      description: Put environment variables of a device
+      tags: ["device", "environment_variables"]
+      operationId: putDeviceEnvironmentVariables
+      security:
+        - api_key: []
+      requestBody:
+        description: Environment variables to be added to the device
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvironmentVariables'
+      responses:
+        "200":
+          $ref: '#/components/responses/EnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/environment_variables/{key}:
+    delete:
+      description: Delete environment variable of a device
+      tags: ["device", "environment_variables"]
+      operationId: deleteDeviceEnvironmentVariable
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The environment variable key to delete.
+      responses:
+        "200":
+          $ref: '#/components/responses/EnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/products/{productUID}/devices/{deviceUID}/environment_variables_with_pin:
+    parameters:
+      - $ref: '#/components/parameters/productUIDParam'
+      - $ref: '#/components/parameters/deviceUIDParam'
+
+    get:
+      description: Get environment variables of a device with device pin
+                   authorization
+      tags: ["device", "environment_variables"]
+      operationId: getDeviceEnvironmentVariablesByPin
+      security:
+        - pin: []
+      responses:
+        "200":
+          $ref: '#/components/responses/GetDeviceEnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    put:
+      description: Put environment variables of a device with device pin
+                   authorization
+      tags: ["device", "environment_variables"]
+      operationId: putDeviceEnvironmentVariablesByPin
+      security:
+        - pin: []
+      requestBody:
+        description: Environment variables to be added to the device
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvironmentVariables'
+      responses:
+        "200":
+          $ref: '#/components/responses/EnvironmentVariablesResponse'
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  # note endpoints
+  /v1/projects/{projectUID}/devices/{deviceUID}/notes/{notefileID}:
+    post:
+      tags: ["notes"]
+      operationId: HandleNoteAdd
+      description: Adds a Note to a Notefile, creating the Notefile if it
+                   doesn't yet exist.
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+        - $ref: '#/components/parameters/notefileIDParam'
+      requestBody:
+        description: Body or payload of note to be added to the device
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Note'
+      responses:
+        "200":
+          description: An empty object means success
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/notes/{notefileID}/{noteID}:
+    post:
+      tags: ["notes"]
+      operationId: HandleNoteCreateAdd
+      description: Adds a Note to a Notefile, creating the Notefile if it
+                   doesn't yet exist.
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+        - $ref: '#/components/parameters/notefileIDParam'
+        - $ref: '#/components/parameters/noteIDParam'
+      requestBody:
+        description: Body or payload of note to be added to the device
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Note'
+      responses:
+        "200":
+          description: An empty object means success
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    delete:
+      tags: ["notes"]
+      operationId: HandleNoteDelete
+      description: Delete a note from a DB notefile
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+        - $ref: '#/components/parameters/notefileIDParam'
+        - $ref: '#/components/parameters/noteIDParam'
+      responses:
+        "200":
+          description: An empty object means success
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    get:
+      tags: ["notes"]
+      operationId: HandleNoteGet
+      description: Get a note from a DB notefile
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+        - $ref: '#/components/parameters/notefileIDParam'
+        - $ref: '#/components/parameters/noteIDParam'
+        - name: delete
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Whether to delete the note from the DB notefile
+        - name: deleted
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Whether to return deleted notes
+      responses:
+        "200":
+          description: The requested note
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  body:
+                    type: object
+                    description: The note body
+                  payload:
+                    type: string
+                    description: The note payload
+                  time:
+                    type: integer
+                    description: The time the Note was added to the Notecard or Notehub
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+    put:
+      tags: ["notes"]
+      operationId: HandleNoteUpdate
+      description: Update a note in a DB notefile
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+        - $ref: '#/components/parameters/notefileIDParam'
+        - $ref: '#/components/parameters/noteIDParam'
+      requestBody:
+        description: Body or payload of note to be added to the device
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Note'
+      responses:
+        "200":
+          description: An empty object means success
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/notes/{notefileID}/changes:
+    get:
+      tags: ["notes"]
+      operationId: HandleNoteChanges
+      description: Incrementally retrieve changes within a specific Notefile.
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+        - $ref: '#/components/parameters/notefileIDParam'
+        - name: tracker
+          description: The change tracker ID.
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: max
+          description: The maximum number of Notes to return in the request.
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: start
+          description: true to reset the tracker to the beginning.
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: stop
+          description: true to delete the tracker.
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: deleted
+          description: true to return deleted notes.
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: delete
+          description: true to delete the notes returned by the request.
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: The note changes object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: The total number of notes.
+                  changes:
+                    type: integer
+                    description: The number of pending changes in the Notefile.
+                  notes:
+                    type: object
+                    description: An object with a key for each note and a value object with the body of each Note and the time the Note was added.
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/files/changes:
+    get:
+      tags: ["files"]
+      operationId: HandleNotefileChanges
+      description: Used to perform queries on a single or multiple files to determine if new Notes are available to read
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+        - name: tracker
+          description: The change tracker ID.
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: files
+          description: One or more files to obtain change information from.
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: The notefile changes object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: The total number of files.
+                  changes:
+                    type: integer
+                    description: The number of pending changes in the Notefile.
+                  info:
+                    type: object
+                    description: An object with a key for each Notefile that matched the request parameters, and value object with the changes and total for each file.
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/files/changes/pending:
+    get:
+      tags: ["files"]
+      operationId: HandleNotefileChangesPending
+      description: Returns info about file changes that are pending upload to Notehub or download to the Notecard.
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      responses:
+        "200":
+          description: The notefile pending changes object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: The total number of files.
+                  changes:
+                    type: integer
+                    description: The number of pending changes in the Notefile.
+                  pending:
+                    type: boolean
+                    description: Whether there are pending changes.
+                  info:
+                    type: object
+                    description: An object with a key for each Notefile that matched the request parameters, and value object with the changes and total for each file.
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/files:
+    delete:
+      tags: ["files"]
+      operationId: HandleNotefileDelete
+      description: Deletes Notefiles and the Notes they contain.
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                files:
+                  description: One or more files to obtain change information from.
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: An empty object means success
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/projects/{projectUID}/devices/{deviceUID}/signal:
+    post:
+      tags: ["device"]
+      operationId: HandleNoteSignal
+      description: Send a signal from Notehub to a Notecard.
+      security:
+        - api_key: []
+      parameters:
+        - $ref: '#/components/parameters/projectUIDParam'
+        - $ref: '#/components/parameters/deviceUIDParam'
+      requestBody:
+        description: Body or payload of singnal to be sent to the device
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Body'
+      responses:
+        "200":
+          description: A status response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connected:
+                    type: boolean
+                    description: true if the Notecard is connected to Notehub.
+        default:
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  securitySchemes:
+    api_key:
+      type: apiKey
+      in: header
+      name: X-Session-Token
+      description: |
+        For accessing most endpoints.
+        To retrieve the key, see the /auth/login endpoint.
+
+    pin:
+      type: apiKey
+      in: header
+      name: X-Auth-Token
+      description: |
+        For accessing endpoints by Device pin.
+
+  parameters:
+    projectUIDParam:
+      name: projectUID
+      in: path
+      required: true
+      schema:
+        type: string
+      # NOTE: Airnote's Project UID
+      example: app:2606f411-dea6-44a0-9743-1130f57d77d8
+
+    productUIDParam:
+      name: productUID
+      in: path
+      required: true
+      schema:
+        type: string
+      example: com.blues.bridge:sensors
+
+    eventUIDParam:
+      name: eventUID
+      in: path
+      required: true
+      schema:
+        type: string
+      example: 4506f411-dea6-44a0-9743-1130f57d7747
+
+    fleetUIDParam:
+      name: fleetUID
+      in: path
+      required: true
+      schema:
+        type: string
+
+    deviceUIDParam:
+      name: deviceUID
+      in: path
+      required: true
+      schema:
+        type: string
+
+    notefileIDParam:
+      name: notefileID
+      in: path
+      required: true
+      schema:
+        type: string
+
+    routeUIDParam:
+      name: routeUID
+      in: path
+      required: true
+      schema:
+        type: string
+      example: route:cbd20093cba58392c9f9bbdd0cdeb1a0
+
+    noteIDParam:
+      name: noteID
+      in: path
+      required: true
+      schema:
+        type: string
+
+    # querystring parameters
+    pageSizeParam:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 50
+
+    pageNumParam:
+      name: pageNum
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    deviceUIDParamQuery:
+      name: deviceUID
+      description: A Device UID.
+      in: query
+      required: false
+      schema:
+        type: string
+
+    sortByParam:
+      name: sortBy
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - device_serial
+          - device_uid
+          - captured
+          - modified
+          - device_location
+          - tower_location
+          - triangulated_location
+        default: captured
+
+    sortOrderParam:
+      name: sortOrder
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - asc
+          - desc
+        default: asc
+
+    startDateParam:
+      name: startDate
+      in: query
+      required: false
+      description: Unix timestamp
+      schema:
+        type: integer
+        minimum: 0
+      # August 10th, 2021
+      example: 1628631763
+
+    endDateParam:
+      name: endDate
+      in: query
+      required: false
+      description: Unix timestamp
+      schema:
+        type: integer
+        minimum: 0
+      # July 15th, 2022
+      example: 1657894210
+
+    cursorParam:
+      name: cursor
+      in: query
+      required: false
+      description: >
+        A cursor, which can be obtained from the `next_cursor` value from a previous call
+        to this endpoint. The results set returned will include this event as its first result
+        if the given identifier is actually the UID of an event. If this event UID is not
+        found, the parameter is ignored and the results set is the same as if the parameter
+        was not included.
+      schema:
+        type: string
+
+    limitParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 50
+
+    systemFilesOnlyParam:
+      name: systemFilesOnly
+      in: query
+      required: false
+      schema:
+        type: boolean
+      example: true
+
+    fleetUIDQueryParam:
+      name: fleetUID
+      in: query
+      required: false
+      schema:
+        type: string
+
+    filesParam:
+      name: files
+      in: query
+      required: false
+      schema:
+        type: string
+      example: _health.qo, data.qo
+
+  responses:
+    ErrorResponse:
+      description: The response body in case of an API error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    EventsResponse:
+      description: The response body from a GET events request.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              events:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+              has_more:
+                type: boolean
+                description: True if there are more events
+            required:
+            - events
+            - has_more
+          example:
+            events:
+              - event: dfa3747d-688b-4250-935b-5dd60354313c
+                session: b623132c-6afb-4740-bc39-e3634e38f064
+                best_id: My Device
+                device: dev:5c0272311928
+                sn: My Device
+                product: product:com.blues.project.demo
+                app: app:218f6217-9f78-432e-9fe0-02ca8b5a216c
+                received: 1656011227.006928
+                req: note.add
+                when: 1656010061
+                file: air.qo
+                updates: 1
+                body:
+                  humidity: 40.375
+                  pressure: 97705.66
+                  temperature: 24.0625
+                  voltage: 2.598
+                best_location_type: triangulated
+                best_location_when: 1652709545
+                best_lat: 34.82476372
+                best_lon: -83.32261614
+                best_location: Atlanta GA
+                best_country: US
+                best_timezone: America/New_York
+                tower_id: 0,0,0,0
+                tri_when: 1652709545
+                tri_lat: 34.82475372
+                tri_lon: -83.32261614
+                tri_location: Atlanta GA
+                tri_country: US
+                tri_timezone: America/New_York
+                tri_points: 6
+            has_more: true
+
+    EventsByCursorResponse:
+      description: The response body from a GET events by cursor request.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              events:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+              next_cursor:
+                type: string
+                description: >
+                  The cursor value of the next result, which is intended to be used as the "cursor"
+                  parameter value of the next call to this method. An empty string is returned if
+                  there are no more results after this results set.
+              has_more:
+                type: boolean
+                description: True if there are more events
+            required:
+              - events
+              - next_cursor
+              - has_more
+          example:
+            events:
+              - event: dfa3747d-688b-4250-935b-5dd60354313c
+                session: b623132c-6afb-4740-bc39-e3634e38f064
+                best_id: My Device
+                device: dev:5c0272311928
+                sn: My Device
+                product: product:com.blues.project.demo
+                app: app:218f6217-9f78-432e-9fe0-02ca8b5a216c
+                received: 1656011227.006928
+                req: note.add
+                when: 1656010061
+                file: air.qo
+                updates: 1
+                body:
+                  humidity: 40.375
+                  pressure: 97705.66
+                  temperature: 24.0625
+                  voltage: 2.598
+                best_location_type: triangulated
+                best_location_when: 1652709545
+                best_lat: 34.82476372
+                best_lon: -83.32261614
+                best_location: Atlanta GA
+                best_country: US
+                best_timezone: America/New_York
+                tower_id: 0,0,0,0
+                tri_when: 1652709545
+                tri_lat: 34.82475372
+                tri_lon: -83.32261614
+                tri_location: Atlanta GA
+                tri_country: US
+                tri_timezone: America/New_York
+                tri_points: 6
+            next_cursor: ""
+            has_more: false
+
+    EnvironmentVariablesResponse:
+      description: The response body from an environment variables request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvironmentVariables'
+
+    GetDeviceEnvironmentVariablesResponse:
+      description: The response body from a get device environment variables request.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              environment_variables:
+                type: object
+                description: The environment variables for this device that have been set using host firmware or the Notehub API or UI.
+                # string to string dictionary
+                # https://swagger.io/docs/specification/data-models/dictionaries/
+                additionalProperties:
+                  type: string
+              environment_variables_env_default:
+                type: object
+                description: The environment variables that have been set using the env.default request through the Notecard API.
+                # string to string dictionary
+                # https://swagger.io/docs/specification/data-models/dictionaries/
+                additionalProperties:
+                  type: string
+            required:
+              - environment_variables
+              - environment_variables_env_default
+
+    FleetsResponse:
+      description: The response body from a fleets endpoint.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              fleets:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Fleet'
+            required:
+            - fleets
+
+    NoteResponse:
+      description: The response body from a note endpoint.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              total:
+                type: integer
+                description: The total number of notes active on the Notefile.
+              template:
+                type: boolean
+                description: true when a template is active on the Notefile.
+
+    SessionResponse:
+      description: The response body for a session request.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              sessions:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceSession'
+              has_more:
+                type: boolean
+            required:
+              - sessions
+              - has_more
+          example:
+            sessions:
+            - session: d76689be-37cd-423c-b695-7e0c19a2a264
+              device: dev:000000000000000
+              product: product:com.blues.demo:project
+              fleets:
+                - fleet:46be9834-5te6-42c1-0000-b5ea05e248d7
+              cell: 310,410,17169,77315594
+              rssi: -61
+              sinr: 183
+              rsrp: -91
+              rsrq: -13
+              bars: 2
+              rat: lte
+              bearer: LTE FDD
+              ip: 10.68.56.193
+              iccid: '89011704278500000000'
+              apn: a-notehub.com.attz
+              tower:
+                time: 1667250835
+                'n': Shorewood Hills WI
+                c: US
+                lat: 43.0742625
+                lon: -89.44239062499999
+                zone: America/Chicago
+                mcc: 310
+                mnc: 410
+                lac: 17169
+                cid: 77315594
+                l: 86MG3HF5+P25
+                count: 7
+                towers: 1
+              tri: {}
+              when: 1667251044
+              voltage: 4.174
+              temp: 24.437
+              continuous: true
+              tls: true
+              work: 1667251046
+              events: 14
+              moved: 1667250807
+              orientation: face-up
+              trigger: first sync; continuous connection mode
+              hp_secs_total: 7659
+              hp_secs_data: 7659
+              hp_cycles_total: 3
+              hp_cycles_data: 3
+              period:
+                since: 1667250832
+                duration: 215
+                bytes_rcvd: 2501
+                bytes_sent: 4138
+                sessions_tls: 1
+                notes_sent: 12
+            has_more: true
+
+    LatestResponse:
+      description: The response body for a Latest Events request.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              latest_events:
+                type: array
+                description: The set of latest events.  Will always include the current "session.begin" event.
+                items:
+                  $ref: '#/components/schemas/Event'
+          example:
+            latest_events:
+            - event: 81bd2bf1-0399-4978-bc46-8f779b4af350
+              session: ed18884b-f2a6-419f-b856-d28dc8f0892b
+              tls: true
+              device: dev:864475040523995
+              product: product:com.blues.app:myapp
+              app: app:2e49f10a-76a9-4e2d-8b18-cef0b8b46446
+              received: 1669667707.564694
+              req: session.begin
+              when: 1669667707
+              file: _session.qo
+              body:
+                why: sensors.qo requested sync (sensors.qo) (TLS)
+              tower_when: 1669667691
+              tower_lat: 43.769062500000004
+              tower_lon: -83.657359375
+              tower_country: US
+              tower_location: Waverly MI
+              tower_timezone: America/Detroit
+              tower_id: 310,410,20483,184692495
+            - event: 916d4c81-06ae-4263-9b55-7a3a0f73cb5a
+              session: 28cdc39f-9f62-4789-b0a3-2f35f9448ced
+              device: dev:864475040523995
+              sn: tj-1
+              product: product:com.blues.app:myapp
+              app: app:2e49f10a-76a9-4e2d-8b18-cef0b8b46446
+              received: 1669667713.221659
+              req: note.add
+              when: 1669667689
+              file: data.qo
+              body:
+                humid: 56.23
+                temp: 35.5
+              tower_when: 1669667677
+              tower_lat: 43.769062500000004
+              tower_lon: -83.657359375
+              tower_country: US
+              tower_location: Waverly MI
+              tower_timezone: America/Detroit
+              tower_id: 310,410,20483,184692495
+            - event: e98c2c3b-edbe-4fe7-af57-2196cc843eb7
+              session: 7211392c-6895-43f8-9256-790655348be5
+              device: dev:864475040523995
+              product: product:com.blues.app:myapp
+              app: app:2e49f10a-76a9-4e2d-8b18-cef0b8b46446
+              received: 1669667711.85316
+              req: note.add
+              when: 1669667695
+              file: sensors.qo
+              body:
+                humidity: 69.88647200683693
+                pressure: 993.6294496104914
+                temp: 21.273027181770885
+              tower_when: 1669667689
+              tower_lat: 43.747037500000005
+              tower_lon: -83.665859375
+              tower_country: US
+              tower_location: Waverly MI
+              tower_timezone: America/Detroit
+              tower_id: 310,410,20483,184692496
+
+    RouteLogsResponse:
+      description: The response body for a Route Logs request.
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                date:
+                  type: string
+                  description: The date of the logs.
+                routeUID:
+                  type: string
+                  description: The route UID.
+                eventUID:
+                  type: string
+                  description: The event UID.
+                attn:
+                  type: boolean
+                  description: Whether the event was routed in error
+                status:
+                  type: string
+                  description: The status of the event.
+                text:
+                  type: string
+                  description: The response body of the route.
+                url:
+                  type: string
+                  description: The URL of the route.
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        err:
+          type: string
+          description: Human readable error message.
+        code:
+          type: integer
+          minimum: 300
+          maximum: 599
+          description: The HTTP error code associated with the error.
+        status:
+          type: string
+          description: Machine readable representation of the HTTP error code.
+        request:
+          type: string
+        details:
+          type: object
+        debug:
+          type: string
+      required:
+        - err
+        - code
+        - status
+
+    JSONata:
+      type: object
+
+    BillingAccount:
+      type: object
+      properties:
+        uid:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/BillingAccountRole'
+      required:
+        - uid
+        - name
+        - role
+
+    BillingAccountRole:
+      type: string
+      enum:
+        - billing_admin
+        - billing_manager
+        - project_creator
+
+    Role:
+      type: string
+      # For viewing a project in which the viewer does not have access.
+      nullable: true
+      enum:
+        - owner
+        - developer
+        - viewer
+        - support
+        - null
+
+    Project:
+      type: object
+      properties:
+        uid:
+          type: string
+        label:
+          type: string
+        created:
+          type: string
+          format: date-time
+        role:
+          $ref: '#/components/schemas/Role'
+        administrative_contact:
+          $ref: '#/components/schemas/Contact'
+        technical_contact:
+          $ref: '#/components/schemas/Contact'
+      required:
+        - uid
+        - label
+        - created
+
+    ProjectMember:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          description: |
+            The email address of the project member.
+            This property will only be populated if the viewer is an owner of the project.
+        role:
+          $ref: '#/components/schemas/Role'
+      required:
+        - name
+        - email
+        - role
+
+    Contact:
+      type: object
+      nullable: true
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        organization:
+          type: string
+
+    Product:
+      type: object
+      properties:
+        uid:
+          type: string
+        label:
+          type: string
+        auto_provision_fleets:
+          type: array
+          items:
+            type: string
+          nullable: true
+        disable_devices_by_default:
+          type: boolean
+      required:
+        - uid
+        - label
+        - disable_devices_by_default
+
+    Fleet:
+      type: object
+      properties:
+        # NOTE: Leaving out is and is_like, for now.
+        uid:
+          type: string
+        label:
+          type: string
+        created:
+          type: string
+          format: date-time
+      required:
+        - uid
+        - label
+        - created
+
+    DFUState:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: ["card", "user"]
+        file:
+          type: string
+          description: Firmware filename
+        length:
+          type: number
+          description: Length of firmware file
+        crc32:
+          type: number
+          description: Used for image verification
+        md5:
+          type: string
+          description: Used for image verification
+        mode:
+          type: string
+          enum: ["idle", "error", "downloading", "sideloading", "ready", "ready-retry", "updating", "completed"]
+          description: |
+            * "idle"          - nothing downloading or downloaded
+            * "error"         - halted and in the error state
+            * "downloading"   - transferring data from cloud to module
+            * "sideloading"   - transferring data via request to module
+            * "ready"         - DFU data is ready/verified and waiting on external storage
+            * "ready-retry"   - DFU data is ready/verified and retrying
+            * "updating"      - currently updating
+            * "completed"     - DFU is done successfully
+        status:
+          type: string
+          description: Status message
+        began:
+          type: number
+          description: The time when the DFU began
+        retry:
+          type: number
+          description: Value of _fw_retry environment var at time of DFU initialization
+        errors:
+          type: number
+          description: The number of consecutive errors the DFU process has encountered
+        read:
+          type: number
+          description: The amount the notecard has read of the image from notehub
+        updated:
+          type: number
+          description: Last updated timestamp
+        version:
+          type: string
+          description: Last known version, which is generally a JSON object contained within the firmware image
+
+    DFUEnv:
+      type: object
+      properties:
+        card:
+          $ref: '#/components/schemas/DFUState'
+        user:
+          $ref: '#/components/schemas/DFUState'
+
+    Device:
+      type: object
+      properties:
+        uid:
+          type: string
+        serial_number:
+          type: string
+        provisioned:
+          type: string
+          format: date-time
+        last_activity:
+          type: string
+          format: date-time
+        contact:
+          $ref: '#/components/schemas/Contact'
+        product_uid:
+          type: string
+        fleet_uids:
+          type: array
+          items:
+            type: string
+        tower_info:
+          type: object
+          properties:
+            mcc:
+              type: integer
+            mnc:
+              type: integer
+            lac:
+              type: integer
+            cell_id:
+              type: integer
+        tower_location:
+          $ref: '#/components/schemas/Location'
+        gps_location:
+          $ref: '#/components/schemas/Location'
+        triangulated_location:
+          $ref: '#/components/schemas/Location'
+        voltage:
+          type: number
+          format: double
+        temperature:
+          type: number
+          format: double
+        dfu:
+          $ref: '#/components/schemas/DFUEnv'
+        sku:
+          type: string
+        disabled:
+          type: boolean
+      required:
+        - uid
+        - provisioned
+        - product_uid
+        - fleet_uids
+        - voltage
+        - temperature
+
+    Event:
+      type: object
+      properties:
+        event:
+          type: string
+          description: Event UID (globally unique)
+        session:
+          type: string
+          description: Session UID (globally unique)
+        tls:
+          type: boolean
+          description: Whether TLS was used on the connection between the device and notehub. Only available on _session.qo events.
+        best_id:
+          type: string
+          description: The device serial number, or the DeviceUID if the serial number is not set
+        device:
+          type: string
+          description: Device UID (globally unique)
+        sn:
+          type: string
+          description: The device serial number
+        product:
+          type: string
+          description: Product UID (globally unique)
+        app:
+          type: string
+          description: App UID (globally unique)
+        received:
+          type: number
+          format: double
+          description: The unix timestamp when the event was received
+        req:
+          type: string
+          description: The notecard request
+        when:
+          type: number
+          description: When the event was captured on the device
+        file:
+          type: string
+          description: The notefile associated with this event
+        note:
+          type: string
+          description: The note ID in the notefile
+        updates:
+          type: number
+        body:
+          type: object
+          description: A JSON object containing event details
+        payload:
+          type: string
+          description: A base64-encoded binary payload
+        best_location_type:
+          type: string
+          description: One of "gps", "triangulated", or "tower"
+        best_location_when:
+          type: number
+          description: Unix timestamp
+        best_lat:
+          type: number
+          format: double
+          description: Latitude
+        best_lon:
+          type: number
+          format: double
+          description: Longitude
+        best_location:
+          type: string
+          description: Location
+        best_country:
+          type: string
+          description: Country
+        best_timezone:
+          type: string
+          description: Timezone
+        where_olc:
+          type: string
+          description: Open Location Code
+        where_when:
+          type: number
+          description: Unix timestamp
+        where_lat:
+          type: number
+          format: double
+          description: Latitude
+        where_lon:
+          type: number
+          format: double
+          description: Longitude
+        where_location:
+          type: string
+          description: Location
+        where_country:
+          type: string
+          description: Country
+        where_timezone:
+          type: string
+          description: Timezone
+        tower_when:
+          type: number
+          description: Unix timestamp
+        tower_lat:
+          type: number
+          format: double
+          description: Latitude
+        tower_lon:
+          type: number
+          format: double
+          description: Longitude
+        tower_country:
+          type: string
+          description: Country
+        tower_location:
+          type: string
+          description: Location
+        tower_timezone:
+          type: string
+          description: Timezone
+        tower_id:
+          type: string
+          description: Tower ID
+        tri_when:
+          type: number
+          description: Unix timestamp
+        tri_lat:
+          type: number
+          format: double
+          description: Latitude
+        tri_lon:
+          type: number
+          format: double
+          description: Longitude
+        tri_location:
+          type: string
+          description: Location
+        tri_country:
+          type: string
+          description: Country
+        tri_timezone:
+          type: string
+          description: Timezone
+        tri_points:
+          type: number
+          description: Triangulation points
+        moved:
+          type: number
+          description: The number of times the device was sensed to have moved between the last session and this session. Only available on _session.qo events.
+        orientation:
+          type: string
+          description: The orientation of the device. Only available on _session.qo events.
+        rssi:
+          type: number
+          description: Received Signal Strength Indicator (RSSI) is an estimated measurement of how well a device can receive signals. Only available on _session.qo events.
+        sinr:
+          type: number
+          description: SINR. Only available on _session.qo events.
+        rsrp:
+          type: number
+          description: RSRP. Only available on _session.qo events.
+        rsrq:
+          type: number
+          description: RSRQ. Only available on _session.qo events.
+        rat:
+          type: string
+          description: Rat. Only available on _session.qo events.
+        bars:
+          type: number
+          description: Bars. Only available on _session.qo events.
+        voltage:
+          type: number
+          format: double
+          description: Device voltage. Only available on _session.qo events.
+        temp:
+          type: number
+          format: double
+          description: Device temperature. Only available on _session.qo events.
+        environment:
+          type: object
+          description: Routed environment variables beginning with "$". Only available on _session.qo events.
+
+    Location:
+      type: object
+      nullable: true
+      properties:
+        when:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+        timezone:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+      required:
+        - when
+        - name
+        - country
+        - timezone
+        - latitude
+        - longitude
+
+    TowerLocation:
+      type: object
+      properties:
+        time:
+          type: number
+        n:
+          type: string
+          description: Name of the location
+        c:
+          type: string
+          description: Country code
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        zone:
+          type: string
+        mcc:
+          type: number
+        mnc:
+          type: number
+        lac:
+          type: number
+        cid:
+          type: number
+        l:
+          type: string
+          description: Open location code
+        z:
+          type: number
+          description: Timezone ID
+        count:
+          type: number
+          description: Number of times this location was recently used
+        towers:
+          type: number
+          description: Number of triangulation points
+
+    DeviceSession:
+      type: object
+      properties:
+        session:
+          type: string
+          description: Session UID
+        device:
+          type: string
+          description: Device UID
+        sn:
+          type: string
+          description: Device Serial Number
+        product:
+          type: string
+          description: Product UID
+        fleets:
+          type: array
+          items:
+            type: string
+          description: Array of Fleet UIDs
+        cell:
+          type: string
+          description: Cell ID where the session originated and quality ("mcc,mnc,lac,cellid")
+        scan:
+          type: string
+          format: byte
+        triangulate:
+          type: object
+        rssi:
+          type: number
+        sinr:
+          type: number
+        rsrp:
+          type: number
+        rsrq:
+          type: number
+        bars:
+          type: number
+        rat:
+          type: string
+        bearer:
+          type: string
+        ip:
+          type: string
+        bssid:
+          type: string
+        ssid:
+          type: string
+        iccid:
+          type: string
+        apn:
+          type: string
+        tower:
+          $ref: '#/components/schemas/TowerLocation'
+        tri:
+          $ref: '#/components/schemas/TowerLocation'
+        when:
+          type: number
+          description: Last known capture time of a note routed through this session
+        where_when:
+          type: number
+        where:
+          type: string
+          description: Where OLC
+        where_lat:
+          type: number
+          format: float
+        where_lon:
+          type: number
+          format: float
+        where_location:
+          type: string
+        where_country:
+          type: string
+        where_timezone:
+          type: string
+        usage_actual:
+          type: boolean
+        voltage:
+          type: number
+          format: float
+        temp:
+          type: number
+          format: float
+        continuous:
+          type: boolean
+        tls:
+          type: boolean
+        work:
+          type: number
+          description: Last time work was done for this session
+        events:
+          type: number
+          description: Number of events routed
+        moved:
+          type: number
+        orientation:
+          type: string
+        hp_secs_total:
+          type: number
+        hp_secs_data:
+          type: number
+        hp_secs_gps:
+          type: number
+        hp_cycles_total:
+          type: number
+        hp_cycles_data:
+          type: number
+        hp_cycles_gps:
+          type: number
+        period:
+          $ref: '#/components/schemas/DeviceUsage'
+
+    DeviceUsage:
+      type: object
+      properties:
+        since:
+          type: number
+        duration:
+          type: number
+        bytes_rcvd:
+          type: number
+        bytes_sent:
+          type: number
+        bytes_rcvd_secondary:
+          type: number
+        bytes_sent_secondary:
+          type: number
+        sessions_tcp:
+          type: number
+        sessions_tls:
+          type: number
+        notes_rcvd:
+          type: number
+        note_sent:
+          type: number
+
+    Route:
+      type: object
+      properties:
+        uid:
+          type: string
+          description: Route UID
+        label:
+          type: string
+          description: Route Label
+        route_type:
+          type: string
+          default: "http"
+          description: Type of route.
+          enum: ["http", "proxy", "google-function", "mqtt", "aws-lambda", "aws-lambda-with-access-key", "aws-sqs", "aws-sqs-with-access-key", "aws-sqs-fifo", 
+                "aws-sqs-fifo-with-access-key", "aws-iot-analytics", "radnote-radresp-fixed-survey", "radnote-radresp-mobile-survey", "azure-function",
+                "azure-function-with-key", "azure-service-bus-with-sas-token", "thingworx", "snowflake", "slack-bearer", "slack-webhook"]
+        modified:
+          type: string
+          description: Last Modified
+        disabled:
+          type: boolean
+          default: false
+          description: Is route disabled?
+        schema:
+          oneOf:
+            - $ref: '#/components/schemas/http'
+            - $ref: '#/components/schemas/google'
+            - $ref: '#/components/schemas/proxy'
+            - $ref: '#/components/schemas/mqtt'
+            - $ref: '#/components/schemas/aws'
+            - $ref: '#/components/schemas/radresponder'
+            - $ref: '#/components/schemas/azure'
+            - $ref: '#/components/schemas/thingworx'
+            - $ref: '#/components/schemas/snowflake'
+            - $ref: '#/components/schemas/slack'
+
+    UserDbRoute:
+      type: object
+      properties:
+        uid:
+          type: string
+          default: "route:8d65a087d5d290ce5bdf03aeff2becc0"
+        label:
+          type: string
+          default: success route
+        type:
+          type: string
+          default: "http"
+        modified:
+          type: string
+          default: "2020-03-09T17:58:37Z"
+        disabled:
+          type: boolean
+          default: false
+
+    http:
+      description: Route settings specific to HTTP routes.
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        filter:
+          type: object
+          properties:
+            type:
+              type: string
+              description: What notefiles this route applies to.
+              enum: ["all", "include", "exclude"]
+            system_notefiles:
+              type: boolean
+              description: Whether system notefiles should be affected by this route
+            files:
+              type: array
+              items:
+                type: string
+                description: list of notefiles to filter.  For instance, if 'type' is set to "include", will only affect files listed here
+              minItems: 0
+          description: Route filtering settings
+        transform:
+          type: object
+          properties:
+            format:
+              type: string
+              description: Data transformation to apply.  Options of "" for none, "bridge" for Azure IoT, "jsonata" for JSONata expression, or "flatten", "simple", "body" or "payload"
+              enum: ["", "bridge", "jsonata", "flatten", "simple", "body", "payload"]
+            jsonata:
+              type: string
+              description: JSONata transformation, if JSONata
+        throttle_ms:
+          type: integer
+          description: Minimum time between requests in Miliseconds
+        url:
+          type: string
+          description: Route URL
+        http_headers:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            headerName1: headerValue1
+            headerName2: headerValue2
+        disable_http_headers:
+          type: boolean
+          default: false
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+
+    google:
+      description: Route settings specific to Google routes.
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        filter:
+          type: object
+          properties:
+            type:
+              type: string
+              description: What notefiles this route applies to.
+              enum: ["all", "include", "exclude"]
+            system_notefiles:
+              type: boolean
+              description: Whether system notefiles should be affected by this route
+            files:
+              type: array
+              items:
+                type: string
+                description: list of notefiles to filter.  For instance, if 'type' is set to "include", will only affect files listed here
+              minItems: 0
+          description: Route filtering settings
+        transform:
+          type: object
+          properties:
+            format:
+              type: string
+              description: Data transformation to apply.  Options of "" for none, "bridge" for Azure IoT, "jsonata" for JSONata expression, or "flatten", "simple", "body" or "payload"
+              enum: ["", "bridge", "jsonata", "flatten", "simple", "body", "payload"]
+            jsonata:
+              type: string
+              description: JSONata transformation, if JSONata
+        throttle_ms:
+          type: integer
+        url:
+          type: string
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+        token:
+          description: Optional authentication token
+          type: string
+
+    proxy:
+      description: Route settings specific to Proxy routes.
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        url:
+          type: string
+        alias:
+          type: string
+        http_headers:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            headerName1: headerValue1
+            headerName2: headerValue2
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+
+    aws:
+      description: Route settings specific to AWS routes.
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        filter:
+          type: object
+          properties:
+            type:
+              type: string
+              description: What notefiles this route applies to.
+              enum: ["all", "include", "exclude"]
+            system_notefiles:
+              type: boolean
+              description: Whether system notefiles should be affected by this route
+            files:
+              type: array
+              items:
+                type: string
+                description: list of notefiles to filter.  For instance, if 'type' is set to "include", will only affect files listed here
+              minItems: 0
+          description: Route filtering settings
+        transform:
+          type: object
+          properties:
+            format:
+              type: string
+              description: Data transformation to apply.  Options of "" for none, "bridge" for Azure IoT, "jsonata" for JSONata expression, or "flatten", "simple", "body" or "payload"
+              enum: ["", "bridge", "jsonata", "flatten", "simple", "body", "payload"]
+            jsonata:
+              type: string
+              description: JSONata transformation, if JSONata
+        throttle_ms:
+          type: integer
+        url:
+          type: string
+        http_headers:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            headerName1: headerValue1
+            headerName2: headerValue2
+        disable_http_headers:
+          type: boolean
+          default: false
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+        region:
+          type: string
+        access_key_id:
+          type: string
+        access_key_secret:
+          type: string
+          description: This value is input-only and will be omitted from the response and replaced with a placeholder
+        message_group_id:
+          type: string
+        message_deduplication_id:
+          type: string
+        channel:
+          type: string
+
+    azure:
+      description: Route settings specific to Azure routes.  Only used for Azure route types
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        filter:
+          type: object
+          properties:
+            type:
+              type: string
+              description: What notefiles this route applies to.
+              enum: ["all", "include", "exclude"]
+            system_notefiles:
+              type: boolean
+              description: Whether system notefiles should be affected by this route
+            files:
+              type: array
+              items:
+                type: string
+                description: list of notefiles to filter.  For instance, if 'type' is set to "include", will only affect files listed here
+              minItems: 0
+          description: Route filtering settings
+        transform:
+          type: object
+          properties:
+            format:
+              type: string
+              description: Data transformation to apply.  Options of "" for none, "bridge" for Azure IoT, "jsonata" for JSONata expression, or "flatten", "simple", "body" or "payload"
+              enum: ["", "bridge", "jsonata", "flatten", "simple", "body", "payload"]
+            jsonata:
+              type: string
+              description: JSONata transformation, if JSONata
+        throttle_ms:
+          type: integer
+        url:
+          type: string
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+        functions_key_secret:
+          type: string
+          description: This value is input-only and will be omitted from the response and replaced with a placeholder
+        sas_policy_name:
+          type: string
+        sas_policy_key:
+          type: string
+          description: This value is input-only and will be omitted from the response and replaced with a placeholder
+
+    thingworx:
+      description: Route settings specific to ThingWorx routes.  Only used for ThingWorx route types
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        filter:
+          type: object
+          properties:
+            type:
+              type: string
+              description: What notefiles this route applies to.
+              enum: ["all", "include", "exclude"]
+            system_notefiles:
+              type: boolean
+              description: Whether system notefiles should be affected by this route
+            files:
+              type: array
+              items:
+                type: string
+                description: list of notefiles to filter.  For instance, if 'type' is set to "include", will only affect files listed here
+              minItems: 0
+          description: Route filtering settings
+        transform:
+          type: object
+          properties:
+            format:
+              type: string
+              description: Data transformation to apply.  Options of "" for none, "bridge" for Azure IoT, "jsonata" for JSONata expression, or "flatten", "simple", "body" or "payload"
+              enum: ["", "bridge", "jsonata", "flatten", "simple", "body", "payload"]
+            jsonata:
+              type: string
+              description: JSONata transformation, if JSONata
+        throttle_ms:
+          type: integer
+        url:
+          type: string
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+        app_key:
+          type: string
+          description: This value is input-only and will be omitted from the response and replaced with a placeholder
+
+    mqtt:
+      description: Route settings specific to MQTT routes.  Only used for MQTT route types
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        filter:
+          type: object
+          properties:
+            type:
+              type: string
+              description: What notefiles this route applies to.
+              enum: ["all", "include", "exclude"]
+            system_notefiles:
+              type: boolean
+              description: Whether system notefiles should be affected by this route
+            files:
+              type: array
+              items:
+                type: string
+                description: list of notefiles to filter.  For instance, if 'type' is set to "include", will only affect files listed here
+              minItems: 0
+          description: Route filtering settings
+        transform:
+          type: object
+          properties:
+            format:
+              type: string
+              description: Data transformation to apply.  Options of "" for none, "bridge" for Azure IoT, "jsonata" for JSONata expression, or "flatten", "simple", "body" or "payload"
+              enum: ["", "bridge", "jsonata", "flatten", "simple", "body", "payload"]
+            jsonata:
+              type: string
+              description: JSONata transformation, if JSONata
+        throttle_ms:
+          type: integer
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+        broker:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+          description: This value is input-only and will be omitted from the response and replaced with a placeholder
+        topic:
+          type: string
+        certificate:
+          type: string
+          description: Certificate with \n newlines.  This value is input-only and will be omitted from the response and replaced with a placeholder
+          example: -----BEGIN CERTIFICATE-----\nMIIBpTCCA...JgVLttUY=\n-----END CERTIFICATE-----
+        certificate_name:
+          type: string
+          description: Name of certificate.
+        key:
+          type: string
+          description: Key with \n newlines.  This value is input-only and will be omitted from the response and replaced with a placeholder
+          example: -----BEGIN PRIVATE KEY-----\nMIIEvwIBA...SleBlvA==\n-----END PRIVATE KEY-----
+        private_key_name:
+          type: string
+          description: Name of key
+
+    radresponder:
+      description: Route settings specific to RadResponder routes.  Only used for RadResponder route types
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        test_api:
+          type: boolean
+          default: false
+        data_feed_key:
+          type: string
+        client_id:
+          type: string
+        client_secret:
+          type: string
+          description: This value is input-only and will be omitted from the response and replaced with a placeholder
+
+    snowflake:
+      description: Route settings specific to Snowflake routes.  Only used for Snowflake route types
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        filter:
+          type: object
+          properties:
+            type:
+              type: string
+              description: What notefiles this route applies to.
+              enum: ["all", "include", "exclude"]
+            system_notefiles:
+              type: boolean
+              description: Whether system notefiles should be affected by this route
+            files:
+              type: array
+              items:
+                type: string
+                description: list of notefiles to filter.  For instance, if 'type' is set to "include", will only affect files listed here
+              minItems: 0
+          description: Route filtering settings
+        transform:
+          type: object
+          properties:
+            format:
+              type: string
+              description: Data transformation to apply.  Only "jsonata" is valid for Snowflake routes
+              default: "jsonata"
+            jsonata:
+              type: string
+              description: JSONata transformation
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+        organization_name:
+          type: string
+        account_name:
+          type: string
+        user_name:
+          type: string
+        private_key_name:
+          type: string
+          description: Name of PEM key.  If omitted, defaults to "present"
+          default: "present"
+        pem:
+          type: string
+          description: PEM key with \n newlines. This value is input-only and will be omitted from the response and replaced with a placeholder
+          example: -----BEGIN PRIVATE KEY-----\nMIIEvwIBA...SleBlvA==\n-----END PRIVATE KEY-----
+
+    twilio:
+      description: Route settings specific to Twilio routes.  Only used for Twilio route types
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        filter:
+          type: object
+          properties:
+            type:
+              type: string
+              description: What notefiles this route applies to.
+              enum: ["all", "include", "exclude"]
+            system_notefiles:
+              type: boolean
+              description: Whether system notefiles should be affected by this route
+            files:
+              type: array
+              items:
+                type: string
+                description: list of notefiles to filter.  For instance, if 'type' is set to "include", will only affect files listed here
+              minItems: 0
+          description: Route filtering settings
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+        account_sid:
+          type: string
+          description: Twilio Account SID
+        auth_token:
+          type: string
+          description: Twilio Auth Token.  This value will be omitted from the response and replaced with a placeholder.
+        to:
+          type: string
+          description: Phone number to send SMS to, leave blank to use notefile, must use E.164 format
+        from:
+          type: string
+          description: Phone number to send SMS from, leave blank to use notefile, must use E.164 format
+        message:
+          type: string
+          description: Message to send, leave blank to use notefile.
+        throttle_ms:
+          type: integer
+
+    slack:
+      description: Route settings specific to Slack routes.  Only used for Slack route types
+      type: object
+      properties:
+        fleets:
+          type: array
+          items:
+            type: string
+          minItems: 0
+          description: list of Fleet UIDs to apply route to, if any.  If empty, applies to all Fleets
+        filter:
+          type: object
+          properties:
+            type:
+              type: string
+              description: What notefiles this route applies to.
+              enum: ["all", "include", "exclude"]
+            system_notefiles:
+              type: boolean
+              description: Whether system notefiles should be affected by this route
+            files:
+              type: array
+              items:
+                type: string
+                description: list of notefiles to filter.  For instance, if 'type' is set to "include", will only affect files listed here
+              minItems: 0
+          description: Route filtering settings
+        transform:
+          type: object
+          properties:
+            format:
+              type: string
+              description: Data transformation to apply.  Only "jsonata" is valid for Snowflake routes
+              default: "jsonata"
+            jsonata:
+              type: string
+              description: JSONata transformation
+        throttle_ms:
+          type: integer
+          description: Minimum time between requests in Miliseconds
+        timeout:
+          type: integer
+          default: 15
+          description: Timeout in seconds for each request
+        
+        slack_type:
+          type: string
+          description: The type of Slack message.  Must be one of "slack-bearer" for Bearer Token or "slack-webhook" for Webhook messages
+        bearer:
+          type: string
+          description: The Bearer Token for Slack messaging, if the "slack-bearer" type is selected
+          example: xoxb-1234-56789abcdefghijklmnop
+        channel:
+          type : string
+          description: The Channel ID for Bearer Token method, if the "slack-bearer" type is selected
+          example: C8675309
+        webhook_url:
+          type: string
+          description: The Webhook URL for Slack Messaging if the "slack-webhook" type is selected
+          example: https://hooks.slack.com/services/FOO4BAR/THIS4THAT/123xYzaBC456
+        text:
+          type: string
+          description: The simple text message to be sent, if the blocks message field is not in use.  Placeholders are available for this field.
+          example: "[.device] reported temp(s) of [.body.temp] at [.body.location]"
+        blocks:
+          type: string
+          description: The Blocks message to be sent.  If populated, this field overrides the text field within the Slack Messaging API.  Placeholders are available for this field.
+    
+    EnvironmentVariables:
+      type: object
+      properties:
+        environment_variables:
+          type: object
+          # string to string dictionary
+          # https://swagger.io/docs/specification/data-models/dictionaries/
+          additionalProperties:
+            type: string
+      required:
+        - environment_variables
+
+    Note:
+      type: object
+      properties:
+        body:
+          type: object
+        payload:
+          type: string
+
+    Body:
+      type: object
+      properties:
+        body:
+          type: object
+
+    Empty:
+      type: object
