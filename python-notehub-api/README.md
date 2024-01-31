@@ -41,6 +41,7 @@ Use the following system commands to migrate to the correct folder and install t
 ```bash
 cd src
 python -m venv .venv
+./.venv/Scripts/activate # <---- path to the script to Activate the Python virtual environment may vary
 pip install -r requirements.txt
 ```
 
@@ -75,12 +76,13 @@ with notehub_api.ApiClient(configuration) as api_client:
     device_api_instance = notehub_api.DevicesApi(api_client)
     env_api_instance = notehub_api.EnvironmentVariablesApi(api_client)
     project_uid = 'notehub-project-uid-goes-here' # str | 
+    device_uid = 'dev:xxxxxxxxxxxxxxxx' # str |
     page_size = 50 # int |  (optional) (default to 50)
     page_num = 1 # int |  (optional) (default to 1)
 
     #api_response = api_instance.get_project_devices(project_uid, page_size=page_size, page_num=page_num)
-    #api_response = env_api_instance.get_device_environment_variables(project_uid, 'dev:864475040058462')
-    api_response = device_api_instance.get_device(project_uid, 'dev:xxxxxxxxxxxxxxxx')
-    print("The response of DevicesApi->get_project_devices:\n")
+    #api_response = env_api_instance.get_device_environment_variables(project_uid, device_uid)
+    api_response = device_api_instance.get_device(project_uid, device_uid)
+    print("The response of DevicesApi->get_project_device:\n")
     pprint(api_response)
 ```
