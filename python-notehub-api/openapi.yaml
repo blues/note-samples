@@ -2706,7 +2706,6 @@ components:
           type: boolean
       required:
         - uid
-        - serial_number
         - provisioned
         - product_uid
         - fleet_uids
