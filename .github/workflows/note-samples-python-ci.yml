@@ -15,6 +15,7 @@ jobs:
           - "python-airnote-data-migration"
           - "python-remote-commands-attn-rpi"
           - "python-route-endpoint"
+          - "python-ota-request-manager"
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
