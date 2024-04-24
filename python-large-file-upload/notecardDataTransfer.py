@@ -10,6 +10,7 @@ class BinaryDataUploader:
 
     webReqRoot = {"req":"web.post",
                 "seconds": DEFAULT_WEB_TRANSACTION_TIMEOUT_SEC,
+                "content":"application/octet-stream",
                 "binary":True,
                 "route": '',
                 "offset":0,
@@ -25,9 +26,15 @@ class BinaryDataUploader:
         self.SetTemporaryContinuousMode=setTempContinuousMode
         self.webReqRoot['route'] = route
         self.webReqRoot['seconds'] = timeout
+        self._fileName = None
         
+    def setFileName(self, fileName):
+        self._fileName = fileName
 
-    def upload(self, data:io.BytesIO):
+    def unsetFileName(self):
+        self._fileName = None
+
+    def upload(self, data:io.BytesIO, unsetFileName=True):
         if self.SetTemporaryContinuousMode:
             self._setTempContinuousMode()
         
@@ -40,6 +47,9 @@ class BinaryDataUploader:
         if self.SetTemporaryContinuousMode:
             self._unsetTempContinuousMode()
 
+        if unsetFileName:
+            self.unsetFileName()
+        
     ## Notecard Request Method
     def _sendRequest(self, req, args=None, errRaisesException=True):
         if isinstance(req,str):
@@ -60,9 +70,17 @@ class BinaryDataUploader:
         webReq = self.webReqRoot
         webReq['offset'] = offset
         webReq['total'] = total
+        if self._fileName is not None:
+            webReq['name'] = self._fileName
+        
         rsp = self._sendRequest(webReq)
 
         if rsp.get("result", 300) >= 300:
+            cobLength = rsp.get('cobs', 0)
+            # if cobLength > 0:
+            #     y = binary_helpers.binary_store_receive(self._card, 0, cobLength)
+            #     self._print(y)
+
             msg = rsp.get('body', {}).get('err', 'unknown')
             raise Exception("Web Request Error: " + msg)
 
