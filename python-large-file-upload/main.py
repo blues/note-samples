@@ -4,6 +4,7 @@ import logging
 import configargparse
 import time
 import notecardDataTransfer
+import os
 
 # Define default options
 DEFAULT_SERIAL_PORT_ID = "COM4"
@@ -37,6 +38,7 @@ def parseCommandLineArgs():
     p.add("-m", "--mode", help="Notecard connection mode to Notehub (continuous, periodic, minimum)")
     p.add("-u", "--product-uid", help="Notehub Product UID (com.company.name.project)", env_var="PRODUCT_UID")
     p.add("-t", "--timeout", help="Web request timeout in seconds", default=DEFAULT_WEB_REQUEST_TIMEOUT, type=int)
+    p.add("-i", "--include-file-name", help="Add file name as query parameter to web request", action='store_true')
     p.add("-e", "--measure-elapsed-time", help="Measure how long the file transfer process takes", action='store_true')
     p.add("--legacy", help="Use legacy method to upload file. Uses base64 encoding in web transaction payloads", action='store_true')
     
@@ -118,6 +120,10 @@ def main():
                 if opts.legacy
                 else notecardDataTransfer.BinaryDataUploader(card, opts.route, printFcn=logging.debug, timeout=opts.timeout))
     
+    if opts.include_file_name:
+        fileName = os.path.basename(os.path.normpath(opts.file))
+        uploader.setFileName(fileName)
+
     startTime = 0
     fileSizeInBytes = 0
     with open(opts.file, 'rb') as f:

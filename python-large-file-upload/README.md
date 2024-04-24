@@ -52,7 +52,7 @@ For more information on large data transfer with Notecard, visit the following d
    |Parameter|Value|Description|
    |---------|-----|-----------|
    |Name|My Web Request Route|Name of route you want to appear in Notehub|
-   |URL|<https://myjson.live/ping|URL> where HTTP requests from Notecard are forwarded|
+   |URL|<https://myjson.live/ping> |URL where HTTP requests from Notecard are forwarded|
    |Alias|ping|Identifier used by Notecard to determine which Web Proxy route to apply|
 
 7. Click "Create Route"
