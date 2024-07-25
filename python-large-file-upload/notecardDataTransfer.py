@@ -27,7 +27,8 @@ class BinaryDataUploader:
         self.webReqRoot['route'] = route
         self.webReqRoot['seconds'] = timeout
         self._fileName = None
-        
+        self._binaryBuffSize = None
+
     def setFileName(self, fileName):
         self._fileName = fileName
 
@@ -96,8 +97,13 @@ class BinaryDataUploader:
             binary_helpers.binary_store_reset(self._card)
             rsp = self._sendRequest("card.binary")
             max = rsp.get("max", 0)
-            
-            buffer = bytearray(max)
+
+            if self._binaryBuffSize is not None:
+                buffSize = self._binaryBuffSize
+            else:
+                buffSize = max
+
+            buffer = bytearray(buffSize)
             numBytes = data.readinto(buffer)
 
             binary_helpers.binary_store_transmit(self._card, buffer[0:numBytes], 0)
@@ -126,6 +132,9 @@ class BinaryDataUploader:
     def _unsetTempContinuousMode(self):
         req = {"req":"hub.set", "off":True}
         self._sendRequest(req)
+
+    def setBinaryBuffSize(self, binaryBuffSize):
+        self._binaryBuffSize = binaryBuffSize
 
 
 import binascii
