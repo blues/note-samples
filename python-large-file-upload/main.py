@@ -5,6 +5,7 @@ import configargparse
 import time
 import notecardDataTransfer
 import os
+import sys
 
 # Define default options
 DEFAULT_SERIAL_PORT_ID = "COM4"
@@ -21,7 +22,7 @@ DEFAULT_CONNECTION_TIMEOUT_SECS = 90
 def parseCommandLineArgs():
 
     DESCRIPTION = """Example for uploading larger files and data to the cloud
-    
+
     """
 
 
@@ -42,6 +43,7 @@ def parseCommandLineArgs():
     p.add("-e", "--measure-elapsed-time", help="Measure how long the file transfer process takes", action='store_true')
     p.add("--legacy", help="Use legacy method to upload file. Uses base64 encoding in web transaction payloads", action='store_true')
     p.add("-B", "--binary-size", help="Size of binary data to send in each transaction", type=int)
+    p.add("-w", "--web-req-type", help="HTTP request type (PUT, POST, etc)", default="POST")
 
     opts = p.parse_args()
     hub_config = {}
@@ -56,16 +58,12 @@ def parseCommandLineArgs():
 
     return opts
 
-
-
-
 def connectToNotecard(opts):
     ## Connect to Notecard
     port = serial.Serial(opts.port, baudrate=opts.baudrate)
     card = notecard.OpenSerial(port, debug=opts.debug)
 
     return card
-
 
 ## Notecard Request Method
 def sendRequest(card, req, args=None, errRaisesException=True):
@@ -82,7 +80,6 @@ def sendRequest(card, req, args=None, errRaisesException=True):
         raise Exception("Notecard Transaction Error: " + rsp['err'])
 
     return rsp
-
 
 def main():
 
@@ -106,7 +103,7 @@ def main():
     logging.info(opts)
 
     card = connectToNotecard(opts)
-        
+
     ## Log Notecard Info
     rsp = sendRequest(card, "card.version")
     logging.info(f"NOTECARD INFO Device: {rsp['device']} SKU: {rsp['sku']} Firmware Version: {rsp['version']}")
@@ -116,10 +113,35 @@ def main():
         sendRequest(card, "hub.set", opts.hub_config)
         logging.info(f"HUB config: {opts.hub_config}")
 
-    uploader = (notecardDataTransfer.BinaryDataUploaderLegacy(card, opts.route, printFcn=logging.debug, timeout=opts.timeout)
-                if opts.legacy
-                else notecardDataTransfer.BinaryDataUploader(card, opts.route, printFcn=logging.debug, timeout=opts.timeout))
-    
+
+    if opts.web_req_type.upper() == "PUT":
+        req = "web.put"
+    elif opts.web_req_type.upper() == "POST":
+        req = "web.post"
+    else:
+        if opts.debug:
+            logging.debug(f"Error: Invalid web request type: {opts.web_req_type}, options are 'PUT' or 'POST'")
+        else:
+            print(f"Error: Invalid web request type: {opts.web_req_type}, options are 'PUT' or 'POST'")
+        sys.exit(1)
+
+    if opts.legacy:
+        uploader = notecardDataTransfer.BinaryDataUploaderLegacy(
+            card,
+            req,
+            opts.route,
+            printFcn=logging.debug,
+            timeout=opts.timeout,
+            )
+    else:
+        uploader = notecardDataTransfer.BinaryDataUploader(
+            card,
+            req,
+            opts.route,
+            printFcn=logging.debug,
+            timeout=opts.timeout,
+            )
+
     if opts.include_file_name:
         fileName = os.path.basename(os.path.normpath(opts.file))
         uploader.setFileName(fileName)
