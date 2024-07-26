@@ -4,11 +4,12 @@ import io
 
 
 DEFAULT_WEB_TRANSACTION_TIMEOUT_SEC = 30
+DEFAULT_CARD_WEB_REQUEST = "web.post"
 
 
 class BinaryDataUploader:
 
-    webReqRoot = {"req":"web.post",
+    webReqRoot = {"req":DEFAULT_CARD_WEB_REQUEST,
                 "seconds": DEFAULT_WEB_TRANSACTION_TIMEOUT_SEC,
                 "content":"application/octet-stream",
                 "binary":True,
@@ -16,14 +17,15 @@ class BinaryDataUploader:
                 "offset":0,
                 "total":0
                 }
-    
+
     ConnectionTimeoutSeconds = 90
 
-    def __init__(self, card, route, timeout=DEFAULT_WEB_TRANSACTION_TIMEOUT_SEC, printFcn=print, waitForNotehubConnection=True, setTempContinuousMode=True) -> None:
+    def __init__(self, card, req, route, timeout=DEFAULT_WEB_TRANSACTION_TIMEOUT_SEC, printFcn=print, waitForNotehubConnection=True, setTempContinuousMode=True) -> None:
         self._card = card
         self._print = printFcn
         self.WaitForConnection = waitForNotehubConnection
         self.SetTemporaryContinuousMode=setTempContinuousMode
+        self.webReqRoot['req'] = req
         self.webReqRoot['route'] = route
         self.webReqRoot['seconds'] = timeout
         self._fileName = None
@@ -37,7 +39,7 @@ class BinaryDataUploader:
     def upload(self, data:io.BytesIO, unsetFileName=True):
         if self.SetTemporaryContinuousMode:
             self._setTempContinuousMode()
-        
+
         if self.WaitForConnection:
             self._print(f"Waiting for Notehub connection")
             self._waitForConnection()
@@ -49,7 +51,7 @@ class BinaryDataUploader:
 
         if unsetFileName:
             self.unsetFileName()
-        
+
     ## Notecard Request Method
     def _sendRequest(self, req, args=None, errRaisesException=True):
         if isinstance(req,str):
@@ -65,7 +67,7 @@ class BinaryDataUploader:
             raise Exception("Notecard Transaction Error: " + rsp['err'])
 
         return rsp
-        
+
     def _writeWebReqBinary(self, offset, total):
         webReq = self.webReqRoot
         webReq['offset'] = offset
@@ -87,7 +89,7 @@ class BinaryDataUploader:
 
 
     def _writeAndFlushBytes(self, data: io.IOBase):
-        
+
         totalBytes = data.seek(0,2)
         data.seek(0,0)
 
@@ -101,7 +103,7 @@ class BinaryDataUploader:
             numBytes = data.readinto(buffer)
 
             binary_helpers.binary_store_transmit(self._card, buffer[0:numBytes], 0)
-            
+
             self._writeWebReqBinary(bytesSent, totalBytes)
 
             bytesSent += numBytes
@@ -113,7 +115,7 @@ class BinaryDataUploader:
         while not isConnected:
             if (time.time() - startTime) > self.ConnectionTimeoutSeconds:
                 raise(Exception(f"Timeout of {self.ConnectionTimeoutSeconds} seconds expired while waiting to connect to Notehub"))
-            
+
             rsp = self._sendRequest("hub.status")
             isConnected =  rsp.get('connected', False)
             time.sleep(1)
@@ -130,7 +132,7 @@ class BinaryDataUploader:
 
 import binascii
 class BinaryDataUploaderLegacy(BinaryDataUploader):
-    webReqRoot = {"req":"web.post",
+    webReqRoot = {"req":DEFAULT_CARD_WEB_REQUEST,
                 "seconds": DEFAULT_WEB_TRANSACTION_TIMEOUT_SEC,
                 "payload": '',
                 "route": '',
@@ -141,7 +143,7 @@ class BinaryDataUploaderLegacy(BinaryDataUploader):
     def upload(self, data:io.BytesIO):
         if self.SetTemporaryContinuousMode:
             self._setTempContinuousMode()
-        
+
         if self.WaitForConnection:
             self._print(f"Waiting for Notehub connection")
             self._waitForConnection()
