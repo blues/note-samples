@@ -134,7 +134,10 @@ def main():
 
 
     if opts.measure_elapsed_time:
-        logging.info(f"Sent file: {opts.file}\n{fileSizeInBytes/1024} KB\n{endTime-startTime} seconds")
+        if opts.debug:
+            logging.info(f"Sent file: {opts.file}\n{fileSizeInBytes/1024} KB\n{endTime-startTime} seconds")
+        else:
+            print(f"Sent file: {opts.file}\n{fileSizeInBytes/1024} KB\n{endTime-startTime} seconds")
 
 if __name__ == "__main__":
     main()
