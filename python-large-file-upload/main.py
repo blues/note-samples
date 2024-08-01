@@ -5,7 +5,6 @@ import configargparse
 import time
 import notecardDataTransfer
 import os
-import sys
 
 # Define default options
 DEFAULT_SERIAL_PORT_ID = "COM4"
@@ -43,7 +42,7 @@ def parseCommandLineArgs():
     p.add("-e", "--measure-elapsed-time", help="Measure how long the file transfer process takes", action='store_true')
     p.add("--legacy", help="Use legacy method to upload file. Uses base64 encoding in web transaction payloads", action='store_true')
     p.add("-B", "--binary-size", help="Size of binary data to send in each transaction", type=int)
-    p.add("-w", "--web-req-type", help="HTTP request type (PUT, POST, etc)", default="POST")
+    p.add("-w", "--web-req-method", help="HTTP request method (PUT, POST, etc)", default="POST")
 
     opts = p.parse_args()
     hub_config = {}
@@ -114,16 +113,12 @@ def main():
         logging.info(f"HUB config: {opts.hub_config}")
 
 
-    if opts.web_req_type.upper() == "PUT":
+    if opts.web_req_method.upper() == "PUT":
         req = "web.put"
-    elif opts.web_req_type.upper() == "POST":
+    elif opts.web_req_method.upper() == "POST":
         req = "web.post"
     else:
-        if opts.debug:
-            logging.debug(f"Error: Invalid web request type: {opts.web_req_type}, options are 'PUT' or 'POST'")
-        else:
-            print(f"Error: Invalid web request type: {opts.web_req_type}, options are 'PUT' or 'POST'")
-        sys.exit(1)
+        raise(Exception(f"Error: Invalid web request method: {opts.web_req_method}, options are 'PUT' or 'POST'"))
 
     if opts.legacy:
         uploader = notecardDataTransfer.BinaryDataUploaderLegacy(
