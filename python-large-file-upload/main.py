@@ -41,7 +41,7 @@ def parseCommandLineArgs():
     p.add("-i", "--include-file-name", help="Add file name as query parameter to web request", action='store_true')
     p.add("-e", "--measure-elapsed-time", help="Measure how long the file transfer process takes", action='store_true')
     p.add("--legacy", help="Use legacy method to upload file. Uses base64 encoding in web transaction payloads", action='store_true')
-    
+    p.add("-B", "--binary-size", help="Size of binary data to send in each transaction", type=int)
 
     opts = p.parse_args()
     hub_config = {}
@@ -123,6 +123,9 @@ def main():
     if opts.include_file_name:
         fileName = os.path.basename(os.path.normpath(opts.file))
         uploader.setFileName(fileName)
+
+    if opts.binary_size:
+        uploader.setBinaryBuffSize(opts.binary_size)
 
     startTime = 0
     fileSizeInBytes = 0

@@ -27,7 +27,8 @@ class BinaryDataUploader:
         self.webReqRoot['route'] = route
         self.webReqRoot['seconds'] = timeout
         self._fileName = None
-        
+        self._binaryBuffSize = None
+
     def setFileName(self, fileName):
         self._fileName = fileName
 
@@ -95,13 +96,21 @@ class BinaryDataUploader:
         while bytesSent < totalBytes:
             binary_helpers.binary_store_reset(self._card)
             rsp = self._sendRequest("card.binary")
-            max = rsp.get("max", 0)
-            
-            buffer = bytearray(max)
-            numBytes = data.readinto(buffer)
 
+            # First set the buffer size to be equal to the max binary buffer size supported by the notecard,
+            # then check if the user has specified a smaller buffer size through the -B/--binary-size flag
+            buffSize = rsp.get("max", 0)
+            if self._binaryBuffSize is not None:
+                buffSize = min(self._binaryBuffSize, buffSize)
+
+            # Create a buffer of the specified size
+            buffer = bytearray(buffSize)
+
+            # Read the data from the file and store it in the notecard's binary store
+            numBytes = data.readinto(buffer)
             binary_helpers.binary_store_transmit(self._card, buffer[0:numBytes], 0)
-            
+
+            # Send the binary data to notehub
             self._writeWebReqBinary(bytesSent, totalBytes)
 
             bytesSent += numBytes
@@ -126,6 +135,9 @@ class BinaryDataUploader:
     def _unsetTempContinuousMode(self):
         req = {"req":"hub.set", "off":True}
         self._sendRequest(req)
+
+    def setBinaryBuffSize(self, binaryBuffSize):
+        self._binaryBuffSize = binaryBuffSize
 
 
 import binascii
