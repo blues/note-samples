@@ -105,9 +105,9 @@
      - `x-ms-blob-type: BlockBlob`
 
 6. **Specify the Destination Path**
-   - Add a forward slash `/` followed by the filename where you want to save the Notecard data. In the example below, the filename **datafile** is used. You can modify this later once the data has been transferred.
+   - Add a forward slash `/` followed by `[$filename]` before the first "?" as can be seen in the image below. This is needed so that the source filename is copied to Azure.
 
-     <img src="azure_images/azure_notehub_setup.png" style="border: 1px solid lightgray;">
+     <img src="azure_images/azure_notehub_setup_filename.png" style="border: 1px solid lightgray;">
 
 
 7. **Create the Route**
@@ -118,11 +118,11 @@
 Once Azure and Notehub have been configured correctly, you can launch the Python script with the following command:
 
 ```bash
-python main.py -B 100000 -w put -u <notehub_product_uid> -f <path_to_file_to_send>
+python main.py -B 100000 -w put -i -s "azure" -u <notehub_product_uid> -f <path_to_file_to_send>
 ```
 
 **Example:**
 
 ```bash
-python main.py -B 100000 -w put -u com.blues.large_file_transfer -f image.png -p /dev/tty.usbmodemNOTE1
+python main.py -B 100000 -w put -i -s "azure" -u com.blues.large_file_transfer -f image.png -p /dev/tty.usbmodemNOTE1
 ```
