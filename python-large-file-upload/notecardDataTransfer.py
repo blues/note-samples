@@ -44,23 +44,31 @@ class BinaryDataUploader:
 
         # Get the current sync time
         rsp = self._sendRequest("hub.sync.status")
-        last_sync_time = current_sync_time = rsp.get('time', 0)
+        lastSyncTime = currentSyncTime = rsp.get('time', 0)
 
-        # Set the filename via env.default and force a sync to update the value on Notehub
-        envReq = {"req":"env.default", "name":"filename", "text":fileName}
+        # Get the filename and env update time
+        envReq = {"req":"env.get"}
         rsp = self._sendRequest(envReq)
-        rsp = self._sendRequest("hub.sync")
+        existingFilename = rsp.get("body", {}).get("filename", None)
+        envUpdateTime = rsp.get("time", 0)
 
-        # Wait for the sync to complete
-        startTime = time.time()
-        while current_sync_time <= last_sync_time:
-            if (time.time() - startTime) > self.ConnectionTimeoutSeconds:
-                raise TimeoutError(f"Timeout of {self.ConnectionTimeoutSeconds} " +
-                                   "seconds expired while waiting to sync env.default")
+        # Only sync if the filename is different or the last sync time is older than the env update time
+        if existingFilename != fileName or lastSyncTime < currentSyncTime:
+            # Set the filename via env.default and force a sync to update the value on Notehub
+            envReq = {"req":"env.default", "name":"filename", "text":fileName}
+            rsp = self._sendRequest(envReq)
+            rsp = self._sendRequest("hub.sync")
 
-            rsp = self._sendRequest("hub.sync.status")
-            current_sync_time =  rsp.get('time', current_sync_time)
-            time.sleep(1)
+            # Wait for the sync to complete
+            startTime = time.time()
+            while currentSyncTime <= lastSyncTime:
+                if (time.time() - startTime) > self.ConnectionTimeoutSeconds:
+                    raise TimeoutError(f"Timeout of {self.ConnectionTimeoutSeconds} " +
+                                    "seconds expired while waiting to sync env.default")
+
+                rsp = self._sendRequest("hub.sync.status")
+                currentSyncTime =  rsp.get('time', currentSyncTime)
+                time.sleep(1)
 
     def setFileName(self, fileName):
         self._fileName = fileName
