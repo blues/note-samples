@@ -5,7 +5,7 @@ import io
 
 DEFAULT_WEB_TRANSACTION_TIMEOUT_SEC = 30
 DEFAULT_CARD_WEB_REQUEST = "web.post"
-
+DEFAULT_MS_AZURE_FILENAME = "datafile"
 
 class BinaryDataUploader:
 
@@ -30,6 +30,45 @@ class BinaryDataUploader:
         self.webReqRoot['seconds'] = timeout
         self._fileName = None
         self._binaryBuffSize = None
+        self._cloud_service = None
+
+    def setFileNameViaEnvDefault(self, fileName):
+        """
+        Set the filename via the env.default method
+
+        This method is needed for cloud providers such as Microsoft Azure, where the filename
+        cannot be set via a web request. Instead, the filename must be set via the env.default
+        method. For this to work, the route URL in notehub must have a $filename placeholder in
+        it. For more information, check doc/azure.md
+        """
+
+        # Get the current sync time
+        rsp = self._sendRequest("hub.sync.status")
+        lastSyncTime = currentSyncTime = rsp.get('time', 0)
+
+        # Get the filename and env update time
+        envReq = {"req":"env.get"}
+        rsp = self._sendRequest(envReq)
+        existingFilename = rsp.get("body", {}).get("filename", None)
+        envUpdateTime = rsp.get("time", 0)
+
+        # Only sync if the filename is different or the last sync time is older than the env update time
+        if existingFilename != fileName or lastSyncTime < currentSyncTime:
+            # Set the filename via env.default and force a sync to update the value on Notehub
+            envReq = {"req":"env.default", "name":"filename", "text":fileName}
+            rsp = self._sendRequest(envReq)
+            rsp = self._sendRequest("hub.sync")
+
+            # Wait for the sync to complete
+            startTime = time.time()
+            while currentSyncTime <= lastSyncTime:
+                if (time.time() - startTime) > self.ConnectionTimeoutSeconds:
+                    raise TimeoutError(f"Timeout of {self.ConnectionTimeoutSeconds} " +
+                                    "seconds expired while waiting to sync env.default")
+
+                rsp = self._sendRequest("hub.sync.status")
+                currentSyncTime =  rsp.get('time', currentSyncTime)
+                time.sleep(1)
 
     def setFileName(self, fileName):
         self._fileName = fileName
@@ -44,6 +83,15 @@ class BinaryDataUploader:
         if self.WaitForConnection:
             self._print(f"Waiting for Notehub connection")
             self._waitForConnection()
+
+        if self._cloud_service == "azure":
+            # Due to a limitation in MS Azure where the filename cannot be set via a web request,
+            # the filename is instead set via the env.default method. This means that the filename
+            # must be set before the data is uploaded to Notehub. If the filename is not set, the
+            # default filename is used. For more info, check setFileNameViaEnvDefault().
+            if self._fileName is None:
+                self._fileName = DEFAULT_MS_AZURE_FILENAME
+            self.setFileNameViaEnvDefault(self._fileName)
 
         self._writeAndFlushBytes(data)
 
@@ -73,7 +121,9 @@ class BinaryDataUploader:
         webReq = self.webReqRoot
         webReq['offset'] = offset
         webReq['total'] = total
-        if self._fileName is not None:
+        # If the filename is set, add it to the web request. This is not supported for Azure
+        # which doesn't have a filename field in the web request, and adding it will cause an error
+        if (self._fileName is not None) and (self._cloud_service != "azure"):
             webReq['name'] = self._fileName
 
         rsp = self._sendRequest(webReq)
@@ -141,6 +191,8 @@ class BinaryDataUploader:
     def setBinaryBuffSize(self, binaryBuffSize):
         self._binaryBuffSize = binaryBuffSize
 
+    def setCloudService(self, cloudService):
+        self._cloud_service = cloudService
 
 import binascii
 class BinaryDataUploaderLegacy(BinaryDataUploader):

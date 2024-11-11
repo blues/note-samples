@@ -43,6 +43,7 @@ def parseCommandLineArgs():
     p.add("--legacy", help="Use legacy method to upload file. Uses base64 encoding in web transaction payloads", action='store_true')
     p.add("-B", "--binary-size", help="Size of binary data to send in each transaction", type=int)
     p.add("-w", "--web-req-method", help="HTTP request method (PUT, POST, etc)", default="POST")
+    p.add("-s", "--cloud-service", type=str, choices=['azure', 'aws', 'gcp'], help="Specify the cloud provider (azure, aws, gcp)")
 
     opts = p.parse_args()
     hub_config = {}
@@ -136,6 +137,9 @@ def main():
             printFcn=logging.debug,
             timeout=opts.timeout,
             )
+
+    if opts.cloud_service:
+        uploader.setCloudService(opts.cloud_service)
 
     if opts.include_file_name:
         fileName = os.path.basename(os.path.normpath(opts.file))
