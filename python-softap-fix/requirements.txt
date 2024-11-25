@@ -1,0 +1,5 @@
+note-python==1.5.0
+packaging==24.2
+python-periphery==2.3.0
+pyserial==3.5
+requests==2.32.3
