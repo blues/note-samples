@@ -32,6 +32,8 @@ class NotehubProject:
         self._project_uid = project_uid
         self.host = host
         self._bearer_token = None
+        self._rate_limit_timeout = 0
+        self._rate_limit_increment_seconds = 8.60
         
         if isUserToken:
             self.getAuthHeader = self._getXSessionHeader
@@ -41,6 +43,7 @@ class NotehubProject:
         self._client_id = client_id
         self._client_secret = client_secret
         self.getAuthHeader = self._getOauthTokenHeader
+        
 
     def _bearer_token_is_expired(self):
         return time.time() >= self._bearer_token["expires_at"]
@@ -93,7 +96,18 @@ class NotehubProject:
 
         return headers
     
-    
+    def _issueRequest(self, method, url, headers, body):
+        while time.time() < self._rate_limit_timeout:
+            time.sleep(0.1)
+        
+        self._rate_limit_timeout = time.time() + self._rate_limit_increment_seconds
+
+        response = http.request(method, url, headers=headers, body=body)
+
+        if response.status <200 or response.status >= 300:
+            raise(Exception(f"Problem performing Notehub request!\n Status Code: {response.status}\n Message:{response.data}"))
+        
+        return response
     
     def _v1Request(self, path, payload = {}, params = {}, method = 'GET'):
 
@@ -104,10 +118,7 @@ class NotehubProject:
 
         jsonPayload = json.dumps(payload)
 
-        response = http.request(method, url, headers=headers, body=jsonPayload)
-
-        if response.status <200 or response.status >= 300:
-            raise(Exception(f"Problem performing Notehub request!\n Status Code: {response.status}\n Message:{response.data}"))
+        response = self._issueRequest(method, url, headers, jsonPayload);
 
         if not response.data:
             return {}
@@ -124,10 +135,7 @@ class NotehubProject:
 
         body = json.dumps(req)
 
-        response = http.request('GET', url=url, headers=headers, body = body)
-
-        if response.status <200 or response.status >= 300:
-            raise(Exception(f"Problem performing Notehub request!\n Status Code: {response.status}\n Message:{response.data}"))
+        response = self._issueRequest('GET', url, headers, body);
 
         if not response.data:
             return {}
