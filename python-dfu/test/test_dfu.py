@@ -25,6 +25,7 @@ def createNotecardAndPort():
     port = serial.Serial("/dev/tty.foo", 9600)
     port.read.side_effect = [b'\r', b'\n', None]
     port.readline.return_value = "\r\n"
+    port.in_waiting = 0
     port.write()
 
     nCard = notecard.OpenSerial(port)
