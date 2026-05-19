@@ -20,13 +20,63 @@ sys.path.insert(0, os.path.abspath(
                 os.path.join(os.path.dirname(__file__), '..')))
 
 
-def createNotecardAndPort():
-    serial = Mock()  # noqa: F811
-    port = serial.Serial("/dev/tty.foo", 9600)
-    port.read.side_effect = [b'\r', b'\n', None]
-    port.readline.return_value = "\r\n"
-    port.write()
+# Speed/scope adjustments for note-python's OpenSerial under test:
+#   * Reset() polls the UART for up to 500 ms × 10 retries during construction.
+#     Tests don't depend on its side effects — patch it out so each
+#     createNotecardAndPort() returns instantly.
+#   * transmit() sleeps CARD_REQUEST_SEGMENT_DELAY_MS (250 ms) after every
+#     request segment. Across 100+ tests this adds minutes of wall time.
+#   * use_serial_lock=True would acquire a FileLock on /tmp/serial.lock on
+#     every transaction. Tests don't need cross-process coordination.
+notecard.OpenSerial.Reset = lambda self: None
+notecard.notecard.CARD_REQUEST_SEGMENT_DELAY_MS = 0
+notecard.notecard.use_serial_lock = False
 
+
+class MockPort:
+    """Stateful mock UART for note-python's OpenSerial.
+
+    note-python 2.x reads byte-by-byte through `_read_byte()` (`uart.read(1)`)
+    and gates reads on `_available()` (`uart.in_waiting > 0`), so a plain
+    `Mock` no longer works as a stand-in. This class exposes the minimum
+    surface OpenSerial needs:
+
+      * `in_waiting`   reflects bytes pending in the RX buffer
+      * `read(n)`      consumes up to `n` bytes from the RX buffer
+      * `write(data)`  appends to `writebuffer` so tests can inspect requests
+      * `feed(data)`   helper for fixture code to queue a response
+
+    Test helpers (`setResponse`, `setResponseList`) push bytes into the RX
+    buffer via `feed()`; `receive()` then reads until it sees a newline.
+    """
+
+    def __init__(self):
+        self._rx = bytearray()
+        self.writebuffer = b''
+
+    @property
+    def in_waiting(self):
+        return len(self._rx)
+
+    def read(self, n=1):
+        chunk = bytes(self._rx[:n])
+        del self._rx[:n]
+        return chunk
+
+    def write(self, data):
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        self.writebuffer += bytes(data)
+        return len(data)
+
+    def feed(self, data):
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        self._rx.extend(data)
+
+
+def createNotecardAndPort():
+    port = MockPort()
     nCard = notecard.OpenSerial(port)
 
     return (nCard, port)
@@ -40,20 +90,20 @@ def convertToSerialStr(r):
 
 
 def setResponse(port, response):
-
-    port.readline.return_value = convertToSerialStr(response)
+    # Overwrite semantics: drop any queued bytes from a previous call, then
+    # queue this response so the next Transaction reads it.
+    port._rx.clear()
+    port.feed(convertToSerialStr(response))
 
 
 def setResponseList(port, response):
-
     if type(response) is not list:
         response = [response, ]
 
-    s = []
+    port._rx.clear()
     for r in response:
-        s.append(convertToSerialStr(r))
+        port.feed(convertToSerialStr(r))
 
-    port.readline.side_effect = s
 
 def createReaderWithMockNotecard(card = Mock()):
     return dfu.dfuReader(card, info={"length":7})
@@ -66,13 +116,10 @@ def createReaderAndPort():
 
 
 def addWriteableBytesBuffer(port):
-    def writeToBuffer(p, d):
-        p.writebuffer += (d)
-        return len(d)
-
+    # MockPort always buffers writes — reset the buffer so this test sees
+    # only the bytes written after this call (matches the old fixture's
+    # behaviour of installing a fresh buffer).
     port.writebuffer = b''
-    port.write = lambda d: writeToBuffer(port, d)
-
     return port
 
 
