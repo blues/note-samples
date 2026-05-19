@@ -14,6 +14,18 @@
 #define ms1Min      (1000*secs1Min)
 #define ms1Hour     (1000*secs1Hour)
 
+// Optional debug serial port for application logging.  Comment this line out
+// to silence all APP_LOG / APP_LOGF output across the sketch.
+#define serialDebugOut Serial
+
+#ifdef serialDebugOut
+  #define APP_LOG(s)    serialDebugOut.print(s)
+  #define APP_LOGF(...) serialDebugOut.printf(__VA_ARGS__)
+#else
+  #define APP_LOG(s)    ((void)0)
+  #define APP_LOGF(...) ((void)0)
+#endif
+
 // .ino
 extern Notecard notecard;
 const char *productVersion(void);

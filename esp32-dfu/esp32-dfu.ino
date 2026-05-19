@@ -37,15 +37,14 @@
 #define buttonPressedState  LOW
 #define ledPin              13
 
-// Note that both of these definitions are optional; just prefix either line with // to remove it.
-//  Remove serialNotecard if you wired your Notecard using I2C SDA/SCL pins instead of serial RX/TX
-//  Remove serialDebug if you don't want the Notecard library to output debug information
+// Uncomment to wire the Notecard via serial RX/TX instead of I2C SDA/SCL.
+// (Application debug output is controlled by `serialDebugOut` in main.h.)
 //#define serialNotecard Serial1
-#define serialDebugOut Serial
 
 // This is the unique Product Identifier for your device.
 #ifndef PRODUCT_UID
 #define PRODUCT_UID ""
+#pragma message "PRODUCT_UID is not defined. The device will run but will not associate with a Notehub project until PRODUCT_UID is set. See https://dev.blues.io/tools-and-sdks/samples/product-uid"
 #endif
 #define myProductID PRODUCT_UID
 
@@ -70,7 +69,7 @@ void setup() {
     delay(2500);
     serialDebugOut.begin(115200);
     notecard.setDebugOutputStream(serialDebugOut);
-    notecard.logDebugf("\n");
+    APP_LOGF("\n");
 #endif
 
     // As the first thing, show the DFU partition information
@@ -83,7 +82,9 @@ void setup() {
     notecard.begin();
 #endif
 
-    // Configure for sync
+    // Configure for sync.  Use sendRequestWithRetry() on the first transaction
+    // after notecard.begin() to absorb the cold-boot race where the Notecard
+    // may not yet be ready to receive a request.
     J *req = notecard.newRequest("hub.set");
     if (req != NULL) {
         if (myProductID[0]) {
@@ -92,7 +93,7 @@ void setup() {
         JAddStringToObject(req, "mode", "periodic");
         JAddNumberToObject(req, "outbound", 2);
         JAddNumberToObject(req, "inbound", 60);
-        notecard.sendRequest(req);
+        notecard.sendRequestWithRetry(req, 5);
     }
 
     // Notify the Notehub of our current firmware version
@@ -124,7 +125,7 @@ void loop() {
         if (millis() > lastStatusMs + 10000) {
             lastStatusMs = millis();
             notecard.sendRequest(notecard.newRequest("dfu.status")); // (just to show current status in debug output)
-            notecard.logDebug("press button to simulate a sensor measurement; double-press to sync/dfu/wifi-scan\n");
+            APP_LOG("press button to simulate a sensor measurement; double-press to sync/dfu/wifi-scan\n");
         }
 
         return;
@@ -142,7 +143,7 @@ void loop() {
     digitalWrite(ledPin, HIGH);
 
     // The button was pressed, so we should begin a transaction
-    notecard.logDebug("performing sensor measurement\n");
+    APP_LOG("performing sensor measurement\n");
     lastStatusMs = millis();
 
 	// Count the simulated measurements that we send to the cloud, and stop the demo before long.
@@ -222,7 +223,7 @@ int buttonPress() {
 
 // This is a product configuration JSON structure that enables the Notehub to recognize this
 // firmware when it's uploaded, to help keep track of versions and so we only ever download
-// firmware buildss that are appropriate for this device.
+// firmware builds that are appropriate for this device.
 #define QUOTE(x) "\"" x "\""
 #define FIRMWARE_VERSION_HEADER "firmware::info:"
 #define FIRMWARE_VERSION FIRMWARE_VERSION_HEADER            \
