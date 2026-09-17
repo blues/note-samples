@@ -162,11 +162,30 @@ void dfuPoll(bool force) {
     // hold the downloaded image in onboard flash answer immediately, and can
     // stay connected and syncing for the whole update.
     bool readyToRead = false;
+    bool needsDFUMode = false;
     if (J *rsp = notecard.requestAndResponse(notecard.newRequest("dfu.get"))) {
         readyToRead = !notecard.responseError(rsp);
-        if (!readyToRead)
-            APP_LOGF("dfu: not ready to read: %s\n", JGetString(rsp, "err"));
+        if (!readyToRead) {
+            const char *rspErr = JGetString(rsp, "err");
+            APP_LOGF("dfu: not ready to read: %s\n", rspErr);
+            // Only one error means "you need to be in DFU mode"; everything
+            // else (a bus glitch, an image that is no longer staged) is not
+            // something DFU mode fixes.  Note that this particular error
+            // carries no {error-token}, so the message is the only signal.
+            needsDFUMode = (strstr(rspErr, "DFU operating mode") != NULL);
+        }
         notecard.deleteResponse(rsp);
+    } else {
+        APP_LOGF("dfu: no response to the readiness check\n");
+    }
+
+    // Don't disconnect a Notecard that was never going to need it.  Leave the
+    // staged image alone and let the next poll try again, rather than reporting
+    // a failure to Notehub over what may be a transient error.
+    if (!readyToRead && !needsDFUMode) {
+        APP_LOGF("dfu: notecard can't serve the image right now; will retry\n");
+        esp_ota_end(update_handle);
+        return;
     }
 
     // Notecards without onboard flash read the image out of the cellular
