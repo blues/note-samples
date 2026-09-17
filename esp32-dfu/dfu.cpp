@@ -16,13 +16,38 @@
 #include "esp_ota_ops.h"
 #include "esp_flash_partitions.h"
 
+// The largest chunk a single dfu.get request will return.  Requests for more
+// than this are rejected by the Notecard.
+#define DFU_CHUNK_LEN 8192
+
+// Whether this DFU had to put the Notecard into DFU mode.  Notecards that hold
+// the downloaded image in onboard flash serve it without DFU mode, so we only
+// enter (and therefore only need to leave) it when the Notecard asks us to.
+static bool dfuModeEntered = false;
+
+// Leave DFU mode, if we entered it.  Prefer "dfu-completed" over "-": it
+// resumes whatever sync mode the Notecard was using beforehand, where "-"
+// would reset it to the periodic default.
+static void dfuExitDFUMode() {
+    if (!dfuModeEntered) {
+        return;
+    }
+    if (J *req = notecard.newRequest("hub.set")) {
+        JAddStringToObject(req, "mode", "dfu-completed");
+        notecard.sendRequest(req);
+    }
+    dfuModeEntered = false;
+}
+
 // Cleanly back out of DFU on any failure: release the ESP OTA handle (if open),
-// tell the Notecard to clear staged DFU state (with an optional error string
-// that surfaces on Notehub), and revert hub mode to whatever it was before DFU.
+// release the Notecard's binary store, tell the Notecard to clear staged DFU
+// state (with an optional error string that surfaces on Notehub), and leave DFU
+// mode if we entered it.
 static void dfuAbort(esp_ota_handle_t handle, const char *err) {
     if (handle != 0) {
         esp_ota_end(handle);
     }
+    NoteBinaryStoreReset();
     if (J *req = notecard.newRequest("dfu.status")) {
         JAddBoolToObject(req, "stop", true);
         if (err != NULL) {
@@ -30,10 +55,7 @@ static void dfuAbort(esp_ota_handle_t handle, const char *err) {
         }
         notecard.sendRequest(req);
     }
-    if (J *req = notecard.newRequest("hub.set")) {
-        JAddStringToObject(req, "mode", "-");
-        notecard.sendRequest(req);
-    }
+    dfuExitDFUMode();
 }
 
 // Display DFU partition information
@@ -98,39 +120,10 @@ void dfuPoll(bool force) {
         return;
     }
 
-    // Enter DFU mode.  Note that the Notecard will automatically switch us back out of
-    // DFU mode after 15m, so we don't leave the notecard in a bad state if we had a problem here.
-    if (J *req = notecard.newRequest("hub.set")) {
-        JAddStringToObject(req, "mode", "dfu");
-        notecard.sendRequest(req);
-    }
-
-    // Proceed with DFU
-    dfuCheckMs = millis();
-
-    // Wait until we have successfully entered the mode.  The fact that this loop isn't
-    // just an infinite loop is simply defensive programming.  If for some odd reason
-    // we don't enter DFU mode, we'll eventually come back here on the next DFU poll.
-    bool inDFUMode = false;
-    uint32_t beganDFUModeCheck = millis();
-    while (!inDFUMode && millis() < beganDFUModeCheck + (2 * ms1Min)) {
-        if (J *rsp = notecard.requestAndResponse(notecard.newRequest("dfu.get"))) {
-            if (!notecard.responseError(rsp))
-                inDFUMode = true;
-            notecard.deleteResponse(rsp);
-        }
-        if (!inDFUMode)
-            delay(2500);
-    }
-
-    // If we failed, leave DFU mode immediately
-    if (!inDFUMode) {
-        dfuAbort(0, "host failed to enter DFU mode");
-        return;
-    }
-
-    // The image is ready.  If the version is the same as what's in memory, then of course don't
-    // bother to do the update.
+    // Prepare the partition that will receive the image BEFORE asking the
+    // Notecard for anything.  Erasing a large flash region takes a while, and
+    // on a Notecard that needs DFU mode that erase would otherwise run against
+    // the Notecard's 15-minute DFU-mode timeout.
     esp_err_t err;
     // update handle : set by esp_ota_begin(), must be freed via esp_ota_end()
     esp_ota_handle_t update_handle = 0 ;
@@ -160,109 +153,184 @@ void dfuPoll(bool force) {
         return;
     }
 
+    // Proceed with DFU
+    dfuCheckMs = millis();
+    dfuModeEntered = false;
+
+    // Ask whether the Notecard can serve the image right now.  A zero-length
+    // dfu.get checks readiness without transferring anything.  Notecards that
+    // hold the downloaded image in onboard flash answer immediately, and can
+    // stay connected and syncing for the whole update.
+    bool readyToRead = false;
+    bool needsDFUMode = false;
+    if (J *rsp = notecard.requestAndResponse(notecard.newRequest("dfu.get"))) {
+        readyToRead = !notecard.responseError(rsp);
+        if (!readyToRead) {
+            const char *rspErr = JGetString(rsp, "err");
+            APP_LOGF("dfu: not ready to read: %s\n", rspErr);
+            // Only one error means "you need to be in DFU mode"; everything
+            // else (a bus glitch, an image that is no longer staged) is not
+            // something DFU mode fixes.  Note that this particular error
+            // carries no {error-token}, so the message is the only signal.
+            needsDFUMode = (strstr(rspErr, "DFU operating mode") != NULL);
+        }
+        notecard.deleteResponse(rsp);
+    } else {
+        APP_LOGF("dfu: no response to the readiness check\n");
+    }
+
+    // Don't disconnect a Notecard that was never going to need it.  Leave the
+    // staged image alone and let the next poll try again, rather than reporting
+    // a failure to Notehub over what may be a transient error.
+    if (!readyToRead && !needsDFUMode) {
+        APP_LOGF("dfu: notecard can't serve the image right now; will retry\n");
+        esp_ota_end(update_handle);
+        return;
+    }
+
+    // Notecards without onboard flash read the image out of the cellular
+    // modem's file system, which they can only do once the network connection
+    // is closed.  Entering DFU mode closes it, but the Notecard has to finish
+    // whatever it was doing first, so poll rather than assuming a fixed delay.
+    // Note that the Notecard leaves DFU mode on its own after 15m, so we don't
+    // strand it in a bad state if we fail partway through.
+    if (!readyToRead) {
+        APP_LOGF("dfu: entering DFU mode\n");
+        if (J *req = notecard.newRequest("hub.set")) {
+            JAddStringToObject(req, "mode", "dfu");
+            notecard.sendRequest(req);
+        }
+        dfuModeEntered = true;
+        uint32_t beganDFUModeCheck = millis();
+        while (!readyToRead && millis() < beganDFUModeCheck + (2 * ms1Min)) {
+            delay(2500);
+            if (J *rsp = notecard.requestAndResponse(notecard.newRequest("dfu.get"))) {
+                readyToRead = !notecard.responseError(rsp);
+                notecard.deleteResponse(rsp);
+            }
+        }
+        if (!readyToRead) {
+            dfuAbort(update_handle, "host failed to enter DFU mode");
+            return;
+        }
+    }
+
     APP_LOGF("dfu: beginning firmware update\n");
+
+    // Each chunk arrives through the Notecard's binary store rather than as
+    // base64 in the response, so clear anything a previous operation left there.
+    NoteBinaryStoreReset();
+
+    // One buffer, reused for every chunk.  NoteBinaryStoreReceive() reads the
+    // COBS-encoded bytes off the wire and decodes them in place, so the buffer
+    // has to be big enough for the *encoded* form of a full chunk, plus the
+    // terminating null it writes after the decoded data.
+    uint32_t chunkBufLen = NoteBinaryCodecMaxEncodedLength(DFU_CHUNK_LEN) + 1;
+    uint8_t *chunkBuf = (uint8_t *) malloc(chunkBufLen);
+    if (chunkBuf == NULL) {
+        APP_LOGF("dfu: can't allocate %lu-byte chunk buffer\n", (unsigned long)chunkBufLen);
+        dfuAbort(update_handle, "out of memory");
+        return;
+    }
 
     // Loop over received chunks
     int offset = 0;
-    int chunklen = 4096;
     int left = imageLength;
     NoteMD5Context md5Context;
     NoteMD5Init(&md5Context);
     while (left) {
 
         // Read next chunk from card
-        int thislen = chunklen;
+        int thislen = DFU_CHUNK_LEN;
         if (left < thislen)
             thislen = left;
 
         // If anywhere, this is the location of the highest probability of I/O error
         // on the I2C or serial bus, simply because of the amount of data being transferred.
         // As such, it's a conservative measure just to retry.
-        char *payload = NULL;
-        for (int retry=0; retry<5; retry++) {
+        bool chunkReceived = false;
+        for (int retry=0; retry<5 && !chunkReceived; retry++) {
             APP_LOGF("dfu: reading chunk (offset:%d length:%d try:%d)\n", offset, thislen, retry+1);
 
-            // Request the next chunk from the notecard
+            // Ask the Notecard to move this chunk into its binary store.  The
+            // response describes what landed there -- decoded "length", encoded
+            // "cobs", and an MD5 in "status" -- but carries no payload.
             J *req = notecard.newRequest("dfu.get");
             if (req == NULL) {
                 APP_LOGF("dfu: insufficient memory\n");
+                free(chunkBuf);
                 dfuAbort(update_handle, "out of memory");
                 return;
             }
             JAddNumberToObject(req, "offset", offset);
             JAddNumberToObject(req, "length", thislen);
+            JAddBoolToObject(req, "binary", true);
             J *rsp = notecard.requestAndResponse(req);
             if (rsp == NULL) {
                 APP_LOGF("dfu: insufficient memory\n");
+                free(chunkBuf);
                 dfuAbort(update_handle, "out of memory");
                 return;
             }
             if (notecard.responseError(rsp)) {
                 APP_LOGF("dfu: error on read: %s\n", JGetString(rsp, "err"));
-            } else {
-                char *payloadB64 = JGetString(rsp, "payload");
-                if (payloadB64[0] == '\0') {
-                    APP_LOGF("dfu: no payload\n");
-                    notecard.deleteResponse(rsp);
-                    dfuAbort(update_handle, "no payload");
-                    return;
-                }
-                payload = (char *) malloc(JB64DecodeLen(payloadB64));
-                if (payload == NULL) {
-                    APP_LOGF("dfu: can't allocate payload decode buffer\n");
-                    notecard.deleteResponse(rsp);
-                    dfuAbort(update_handle, "out of memory");
-                    return;
-                }
-                int actuallen = JB64Decode(payload, payloadB64);
-                const char *expectedMD5 = JGetString(rsp, "status");
-                char chunkMD5[NOTE_MD5_HASH_STRING_SIZE] = {0};
-                NoteMD5HashString((uint8_t *)payload, actuallen, chunkMD5, sizeof(chunkMD5));
-                if (actuallen == thislen && strcmp(chunkMD5, expectedMD5) == 0) {
-                    notecard.deleteResponse(rsp);
-                    break;
-                }
-
-                free(payload);
-                payload = NULL;
-
-                if (thislen != actuallen)
-                    APP_LOGF("dfu: decoded data not the correct length (%d != actual %d)\n", thislen, actuallen);
-                else
-                    APP_LOGF("dfu: %d-byte decoded data MD5 mismatch (%s != actual %s)\n", actuallen, expectedMD5, chunkMD5);
+                notecard.deleteResponse(rsp);
+                continue;
             }
 
+            // A Notecard that predates the binary argument ignores it and
+            // answers with a payload instead.  Fail loudly rather than silently
+            // reading an empty binary store.
+            if (JGetObjectItem(rsp, "cobs") == NULL) {
+                APP_LOGF("dfu: this Notecard does not support dfu.get with binary:true (requires firmware v9.1.1 or later)\n");
+                notecard.deleteResponse(rsp);
+                free(chunkBuf);
+                dfuAbort(update_handle, "notecard firmware too old for binary DFU");
+                return;
+            }
             notecard.deleteResponse(rsp);
+
+            // Pull the chunk out of the binary store.  This issues
+            // card.binary.get, COBS-decodes in place, and verifies the chunk
+            // against the MD5 the Notecard reported -- the same integrity check
+            // the base64 path used to do by hand.
+            const char *binErr = NoteBinaryStoreReceive(chunkBuf, chunkBufLen, 0, thislen);
+            if (binErr != NULL) {
+                APP_LOGF("dfu: error reading binary store: %s\n", binErr);
+                continue;
+            }
+
+            chunkReceived = true;
         }
-        if (payload == NULL) {
+        if (!chunkReceived) {
             APP_LOGF("dfu: unrecoverable error on read\n");
+            free(chunkBuf);
             dfuAbort(update_handle, "unrecoverable read error");
             return;
         }
 
         // MD5 the chunk
-        NoteMD5Update(&md5Context, (uint8_t *)payload, thislen);
+        NoteMD5Update(&md5Context, chunkBuf, thislen);
 
         // Write the chunk
-        err = esp_ota_write(update_handle, (const void *)payload, thislen);
+        err = esp_ota_write(update_handle, (const void *)chunkBuf, thislen);
         if (err != ESP_OK) {
-            free(payload);
+            free(chunkBuf);
             dfuAbort(update_handle, esp_err_to_name(err));
             return;
         }
 
         // Move to next chunk
-        free(payload);
         APP_LOGF("dfu: successfully transferred offset:%d len:%d\n", offset, thislen);
         offset += thislen;
         left -= thislen;
     }
 
-    // Exit DFU mode.  (Had we not done this, the Notecard exits DFU mode automatically after 15m.)
-    if (J *req = notecard.newRequest("hub.set")) {
-        JAddStringToObject(req, "mode", "-");
-        notecard.sendRequest(req);
-    }
+    // The whole image is off the Notecard now.  Hand the binary store back to
+    // the rest of the application, and leave DFU mode if we entered it.
+    free(chunkBuf);
+    NoteBinaryStoreReset();
+    dfuExitDFUMode();
 
     // Done
     if (esp_ota_end(update_handle) != ESP_OK) {
