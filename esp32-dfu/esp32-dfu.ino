@@ -82,9 +82,7 @@ void setup() {
     notecard.begin();
 #endif
 
-    // Configure for sync.  Use sendRequestWithRetry() on the first transaction
-    // after notecard.begin() to absorb the cold-boot race where the Notecard
-    // may not yet be ready to receive a request.
+    // Configure for sync.
     J *req = notecard.newRequest("hub.set");
     if (req != NULL) {
         if (myProductID[0]) {
@@ -93,7 +91,7 @@ void setup() {
         JAddStringToObject(req, "mode", "periodic");
         JAddNumberToObject(req, "outbound", 2);
         JAddNumberToObject(req, "inbound", 60);
-        notecard.sendRequestWithRetry(req, 5);
+        notecard.sendRequest(req);
     }
 
     // Notify the Notehub of our current firmware version

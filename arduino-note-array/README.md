@@ -55,7 +55,7 @@ For this example, the timestamp is generated for each measurement using the `car
 
 The Arduino Notecard API uses `malloc` by default to construct the JSON object in the heap memory.  
 
-To try and make it easier for the developer to prevent memory leaks in the heap, the `sendRequest`, `requestAndResponse`, and `sendRequestWithRetry` APIs all call the `JDelete` function to clear the request object passed to each of these functions.
+To try and make it easier for the developer to prevent memory leaks in the heap, the `sendRequest` and `requestAndResponse` APIs both call the `JDelete` function to clear the request object passed to each of these functions.
 
 That means, the JSON request object must be constructed prior to each call, even if the request object has the same structure.
 
