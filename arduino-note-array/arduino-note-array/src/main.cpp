@@ -73,7 +73,7 @@ void configureNotecard(){
     JAddStringToObject(req, "mode", "continuous");
     JAddBoolToObject(req, "sync", true);
 
-    bool success = notecard.sendRequestWithRetry(req, 5); // 5 seconds
+    bool success = notecard.sendRequest(req);
 
     if (!success){
       notecard.logDebugf("Failed to configure Notecard");
