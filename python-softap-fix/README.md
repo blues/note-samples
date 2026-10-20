@@ -6,7 +6,7 @@ ESP32-based Wi-Fi Notecards and not Cell+WiFi or legacy Notecards.
 
 ## Requirements
 
-- Python 3
+- Python 3.10 or later
 
 ## Usage
 
