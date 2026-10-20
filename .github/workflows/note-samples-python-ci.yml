@@ -1,24 +1,37 @@
 name: note-samples-python-ci
 
-on: [push]
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}${{ github.ref == 'refs/heads/main' && format('-{0}', github.sha) || '' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
 
 jobs:
   build:
 
-    runs-on: ubuntu-latest
-    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10"] # ["3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.11", "3.13"]
         sample:
           - "python-dfu"
           - "python-remote-commands-attn-rpi"
           - "python-route-endpoint"
           - "python-ota-request-manager"
+          - "python-large-file-upload"
+          - "python-softap-fix"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -35,6 +48,7 @@ jobs:
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
+        if: hashFiles(format('{0}/**/test_*.py', matrix.sample), format('{0}/**/*_test.py', matrix.sample)) != ''
         run: |
           cd ${{ matrix.sample }}
           pytest

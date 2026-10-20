@@ -14,7 +14,7 @@
 
 #include <stdlib.h>
 
-#include <notecard.h>
+#include <Notecard.h>
 
 // Note that both of these definitions are optional; just prefix either line
 // with `//` to remove it.
