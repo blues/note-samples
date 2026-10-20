@@ -18,7 +18,7 @@ General workflow follows:
 
 
 ## Setup Hardware
-Notecard connected to a Raspberry Pi with Python 3 installed
+Notecard connected to a Raspberry Pi with Python 3.10 or later installed
 
 The Notecard ATTN Pin is wired to a GPIO pin on the Rasberry Pi
 
